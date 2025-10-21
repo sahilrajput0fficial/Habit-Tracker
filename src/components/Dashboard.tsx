@@ -1,0 +1,253 @@
+import { useState } from 'react';
+import { useHabits } from '../hooks/useHabits';
+import { Plus, CheckCircle2, Circle, Flame, Calendar, TrendingUp, Menu, Moon, Sun, LogOut } from 'lucide-react';
+import { HabitForm } from './HabitForm';
+import { CalendarView } from './CalendarView';
+import { ProgressView } from './ProgressView';
+import { useAuth } from '../contexts/AuthContext';
+
+type View = 'dashboard' | 'calendar' | 'progress';
+
+export function Dashboard() {
+  const { habits, loading, toggleCompletion, isCompleted, getStreak } = useHabits();
+  const { profile, signOut, updateProfile } = useAuth();
+  const [currentView, setCurrentView] = useState<View>('dashboard');
+  const [showHabitForm, setShowHabitForm] = useState(false);
+  const [editingHabit, setEditingHabit] = useState<string | null>(null);
+
+  const today = new Date().toISOString().split('T')[0];
+  const isDarkMode = profile?.theme === 'dark';
+
+  async function toggleTheme() {
+    const newTheme = isDarkMode ? 'light' : 'dark';
+    await updateProfile({ theme: newTheme });
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  const completedToday = habits.filter(h => isCompleted(h.id, today)).length;
+  const totalActive = habits.length;
+
+  return (
+    <div className={isDarkMode ? 'dark' : ''}>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors">
+        <nav className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between items-center h-16">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+                  <span className="text-white font-bold">HT</span>
+                </div>
+                <h1 className="text-xl font-bold text-gray-900 dark:text-white">Habit Tracker</h1>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={toggleTheme}
+                  className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                >
+                  {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+                </button>
+                <button
+                  onClick={() => signOut()}
+                  className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                >
+                  <LogOut className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </nav>
+
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="flex gap-2 mb-8 border-b border-gray-200 dark:border-gray-700">
+            <button
+              onClick={() => setCurrentView('dashboard')}
+              className={`px-4 py-2 font-medium transition-colors ${
+                currentView === 'dashboard'
+                  ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <Menu className="w-4 h-4" />
+                <span>Dashboard</span>
+              </div>
+            </button>
+            <button
+              onClick={() => setCurrentView('calendar')}
+              className={`px-4 py-2 font-medium transition-colors ${
+                currentView === 'calendar'
+                  ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <Calendar className="w-4 h-4" />
+                <span>Calendar</span>
+              </div>
+            </button>
+            <button
+              onClick={() => setCurrentView('progress')}
+              className={`px-4 py-2 font-medium transition-colors ${
+                currentView === 'progress'
+                  ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <TrendingUp className="w-4 h-4" />
+                <span>Progress</span>
+              </div>
+            </button>
+          </div>
+
+          {currentView === 'dashboard' && (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
+                      <CheckCircle2 className="w-6 h-6 text-green-600 dark:text-green-400" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">Today's Progress</p>
+                      <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                        {completedToday}/{totalActive}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/30 rounded-lg flex items-center justify-center">
+                      <Flame className="w-6 h-6 text-orange-600 dark:text-orange-400" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">Active Habits</p>
+                      <p className="text-2xl font-bold text-gray-900 dark:text-white">{totalActive}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
+                      <Calendar className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">Completion Rate</p>
+                      <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                        {totalActive > 0 ? Math.round((completedToday / totalActive) * 100) : 0}%
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Today's Habits</h2>
+                <button
+                  onClick={() => setShowHabitForm(true)}
+                  className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  <Plus className="w-5 h-5" />
+                  <span>Add Habit</span>
+                </button>
+              </div>
+
+              {habits.length === 0 ? (
+                <div className="bg-white dark:bg-gray-800 rounded-xl p-12 text-center border border-gray-200 dark:border-gray-700">
+                  <Circle className="w-16 h-16 text-gray-400 dark:text-gray-600 mx-auto mb-4" />
+                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">No habits yet</h3>
+                  <p className="text-gray-600 dark:text-gray-400 mb-6">
+                    Start building better habits by creating your first one
+                  </p>
+                  <button
+                    onClick={() => setShowHabitForm(true)}
+                    className="inline-flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    <Plus className="w-5 h-5" />
+                    <span>Create Your First Habit</span>
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {habits.map(habit => {
+                    const completed = isCompleted(habit.id, today);
+                    const streak = getStreak(habit.id);
+
+                    return (
+                      <div
+                        key={habit.id}
+                        className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow"
+                      >
+                        <div className="flex items-start justify-between mb-4">
+                          <div className="flex items-center gap-3">
+                            <div
+                              className="w-10 h-10 rounded-lg flex items-center justify-center"
+                              style={{ backgroundColor: habit.color + '20' }}
+                            >
+                              <span className="text-2xl">{habit.icon}</span>
+                            </div>
+                            <div>
+                              <h3 className="font-semibold text-gray-900 dark:text-white">{habit.name}</h3>
+                              {habit.description && (
+                                <p className="text-sm text-gray-600 dark:text-gray-400">{habit.description}</p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                            <Flame className="w-4 h-4" />
+                            <span>{streak} day streak</span>
+                          </div>
+                          <button
+                            onClick={() => toggleCompletion(habit.id, today)}
+                            className={`p-2 rounded-lg transition-all ${
+                              completed
+                                ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
+                                : 'bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-600'
+                            }`}
+                          >
+                            {completed ? (
+                              <CheckCircle2 className="w-6 h-6" />
+                            ) : (
+                              <Circle className="w-6 h-6" />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </>
+          )}
+
+          {currentView === 'calendar' && <CalendarView />}
+          {currentView === 'progress' && <ProgressView />}
+        </div>
+
+        {showHabitForm && (
+          <HabitForm
+            habitId={editingHabit}
+            onClose={() => {
+              setShowHabitForm(false);
+              setEditingHabit(null);
+            }}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
