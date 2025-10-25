@@ -29,7 +29,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('Auth state change:', event, { user: !!session?.user });
       (async () => {
         setUser(session?.user ?? null);
         if (session?.user) {
@@ -54,6 +55,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (error) throw error;
       setProfile(data);
+
+      // Store theme in localStorage for immediate access
+      if (data?.theme) {
+        localStorage.setItem('theme', data.theme);
+        // Dispatch custom event to notify ThemeContext of theme change
+        window.dispatchEvent(new CustomEvent('themeChange', { detail: data.theme }));
+      }
     } catch (error) {
       console.error('Error loading profile:', error);
     } finally {
@@ -93,6 +101,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     if (error) throw error;
+    console.log('Sign in successful');
   }
 
   async function signOut() {
