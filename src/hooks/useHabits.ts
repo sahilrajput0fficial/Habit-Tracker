@@ -1,6 +1,29 @@
 import { useState, useEffect } from 'react';
-import { supabase, Habit, HabitCompletion } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+
+type Habit = {
+  id: string;
+  user_id: string;
+  name: string;
+  description: string;
+  color: string;
+  icon: string;
+  frequency: 'daily' | 'weekly' | 'custom';
+  target_days: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+type HabitCompletion = {
+  id: string;
+  habit_id: string;
+  user_id: string;
+  completed_date: string;
+  notes: string;
+  created_at: string;
+};
 
 export function useHabits() {
   const { user } = useAuth();
@@ -21,13 +44,18 @@ export function useHabits() {
 
   async function loadHabits() {
     try {
+      console.log('Loading habits for user:', user?.id);
       const { data, error } = await supabase
         .from('habits')
         .select('*')
         .eq('is_active', true)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error loading habits:', error);
+        throw error;
+      }
+      console.log('Loaded habits:', data);
       setHabits(data || []);
     } catch (error) {
       console.error('Error loading habits:', error);
@@ -46,7 +74,10 @@ export function useHabits() {
         .select('*')
         .gte('completed_date', thirtyDaysAgo.toISOString().split('T')[0]);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error loading completions:', error);
+        throw error;
+      }
       setCompletions(data || []);
     } catch (error) {
       console.error('Error loading completions:', error);
@@ -54,20 +85,58 @@ export function useHabits() {
   }
 
   async function createHabit(habit: Omit<Habit, 'id' | 'user_id' | 'created_at' | 'updated_at'>) {
-    if (!user) return;
+    if (!user) {
+      console.error('No user found! Cannot create habit.');
+      throw new Error('You must be logged in to create a habit.');
+    }
 
-    const { data, error } = await supabase
-      .from('habits')
-      .insert({ ...habit, user_id: user.id })
-      .select()
-      .single();
+    // Check for duplicate habit name (case-insensitive)
+    const trimmedName = habit.name.trim().toLowerCase();
+    const duplicate = habits.find(
+      h => h.name.trim().toLowerCase() === trimmedName
+    );
 
-    if (error) throw error;
-    setHabits([data, ...habits]);
-    return data;
+    if (duplicate) {
+      throw new Error('A habit with this name already exists. Please choose a different name.');
+    }
+
+    console.log('Creating habit with data:', habit);
+    console.log('User ID:', user.id);
+
+    try {
+      const { data, error } = await supabase
+        .from('habits')
+        .insert({ ...habit, user_id: user.id })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Supabase error creating habit:', error);
+        throw error;
+      }
+
+      console.log('Habit created successfully:', data);
+      setHabits([data, ...habits]);
+      return data;
+    } catch (error) {
+      console.error('Exception creating habit:', error);
+      throw error;
+    }
   }
 
   async function updateHabit(id: string, updates: Partial<Habit>) {
+    // Check for duplicate name when updating (exclude current habit)
+    if (updates.name) {
+      const trimmedName = updates.name.trim().toLowerCase();
+      const duplicate = habits.find(
+        h => h.id !== id && h.name.trim().toLowerCase() === trimmedName
+      );
+
+      if (duplicate) {
+        throw new Error('A habit with this name already exists. Please choose a different name.');
+      }
+    }
+
     const { error } = await supabase
       .from('habits')
       .update(updates)

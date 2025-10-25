@@ -1,7 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { X, Save } from 'lucide-react';
 import { useHabits } from '../hooks/useHabits';
-import { Habit } from '../lib/supabase';
 
 const COLORS = [
   '#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6',
@@ -24,6 +23,8 @@ export function HabitForm({ habitId, onClose }: Props) {
   const [frequency, setFrequency] = useState<'daily' | 'weekly'>('daily');
   const [targetDays, setTargetDays] = useState(7);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const errorRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (habitId) {
@@ -37,40 +38,51 @@ export function HabitForm({ habitId, onClose }: Props) {
         setTargetDays(habit.target_days);
       }
     }
+    setError(''); // Clear any previous errors
   }, [habitId, habits]);
 
   async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setSaving(true);
+  e.preventDefault();
+  setSaving(true);
+  setError(''); // Clear previous errors
 
-    try {
-      if (habitId) {
-        await updateHabit(habitId, {
-          name,
-          description,
-          color,
-          icon,
-          frequency,
-          target_days: targetDays,
-        });
-      } else {
-        await createHabit({
-          name,
-          description,
-          color,
-          icon,
-          frequency,
-          target_days: targetDays,
-          is_active: true,
-        });
-      }
-      onClose();
-    } catch (error) {
-      console.error('Error saving habit:', error);
-    } finally {
-      setSaving(false);
+  try {
+    if (habitId) {
+      await updateHabit(habitId, {
+        name,
+        description,
+        color,
+        icon,
+        frequency,
+        target_days: targetDays,
+      });
+    } else {
+      await createHabit({
+        name,
+        description,
+        color,
+        icon,
+        frequency,
+        target_days: targetDays,
+        is_active: true,
+      });
     }
+    onClose();
+  } catch (error: any) {
+    const errorMessage = error?.message || 'An error occurred while saving the habit.';
+    setError(errorMessage);
+    
+    // Scroll to error after state update
+    setTimeout(() => {
+      errorRef.current?.scrollIntoView({ 
+        behavior: 'smooth', 
+        block: 'center' 
+      });
+    }, 100);
+  } finally {
+    setSaving(false);
   }
+}
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -88,6 +100,13 @@ export function HabitForm({ habitId, onClose }: Props) {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
+          {error && (
+            <div 
+              ref={errorRef}
+              className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg text-sm">
+              {error}
+            </div>
+          )}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Habit Name
@@ -125,11 +144,10 @@ export function HabitForm({ habitId, onClose }: Props) {
                   key={i}
                   type="button"
                   onClick={() => setIcon(i)}
-                  className={`p-3 text-2xl rounded-lg border-2 transition-all ${
-                    icon === i
-                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30'
-                      : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
-                  }`}
+                  className={`p-3 text-2xl rounded-lg border-2 transition-all ${icon === i
+                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30'
+                    : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
+                    }`}
                 >
                   {i}
                 </button>
@@ -147,11 +165,10 @@ export function HabitForm({ habitId, onClose }: Props) {
                   key={c}
                   type="button"
                   onClick={() => setColor(c)}
-                  className={`w-full h-10 rounded-lg border-2 transition-all ${
-                    color === c
-                      ? 'border-gray-900 dark:border-white scale-110'
-                      : 'border-transparent hover:scale-105'
-                  }`}
+                  className={`w-full h-10 rounded-lg border-2 transition-all ${color === c
+                    ? 'border-gray-900 dark:border-white scale-110'
+                    : 'border-transparent hover:scale-105'
+                    }`}
                   style={{ backgroundColor: c }}
                 />
               ))}
@@ -169,11 +186,10 @@ export function HabitForm({ habitId, onClose }: Props) {
                   setFrequency('daily');
                   setTargetDays(7);
                 }}
-                className={`p-3 rounded-lg border-2 transition-all ${
-                  frequency === 'daily'
-                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
-                    : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 text-gray-700 dark:text-gray-300'
-                }`}
+                className={`p-3 rounded-lg border-2 transition-all ${frequency === 'daily'
+                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                  : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 text-gray-700 dark:text-gray-300'
+                  }`}
               >
                 Daily
               </button>
@@ -183,11 +199,10 @@ export function HabitForm({ habitId, onClose }: Props) {
                   setFrequency('weekly');
                   setTargetDays(3);
                 }}
-                className={`p-3 rounded-lg border-2 transition-all ${
-                  frequency === 'weekly'
-                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
-                    : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 text-gray-700 dark:text-gray-300'
-                }`}
+                className={`p-3 rounded-lg border-2 transition-all ${frequency === 'weekly'
+                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                  : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 text-gray-700 dark:text-gray-300'
+                  }`}
               >
                 Weekly
               </button>
