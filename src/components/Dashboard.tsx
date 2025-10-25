@@ -5,23 +5,20 @@ import { HabitForm } from './HabitForm';
 import { CalendarView } from './CalendarView';
 import { ProgressView } from './ProgressView';
 import { useAuth } from '../contexts/AuthContext';
+import { useTheme } from '../contexts/ThemeContext';
 
 type View = 'dashboard' | 'calendar' | 'progress';
 
 export function Dashboard() {
   const { habits, loading, toggleCompletion, isCompleted, getStreak } = useHabits();
-  const { profile, signOut, updateProfile } = useAuth();
+  const { signOut } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const [currentView, setCurrentView] = useState<View>('dashboard');
   const [showHabitForm, setShowHabitForm] = useState(false);
   const [editingHabit, setEditingHabit] = useState<string | null>(null);
 
   const today = new Date().toISOString().split('T')[0];
-  const isDarkMode = profile?.theme === 'dark';
-
-  async function toggleTheme() {
-    const newTheme = isDarkMode ? 'light' : 'dark';
-    await updateProfile({ theme: newTheme });
-  }
+  const isDarkMode = theme === 'dark';
 
   if (loading) {
     return (

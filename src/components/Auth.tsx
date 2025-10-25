@@ -17,13 +17,18 @@ export function Auth() {
     setLoading(true);
 
     try {
+      console.log('Attempting auth:', { isSignUp, email });
       if (isSignUp) {
         await signUp(email, password, fullName);
+        console.log('Sign up completed');
       } else {
         await signIn(email, password);
+        console.log('Sign in completed');
       }
-    } catch (err: any) {
-      setError(err.message || 'An error occurred');
+    } catch (err: unknown) {
+      console.error('Auth error:', err);
+      const errorMessage = err instanceof Error ? err.message : 'An error occurred';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
