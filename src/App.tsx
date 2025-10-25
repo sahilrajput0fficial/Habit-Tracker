@@ -1,5 +1,6 @@
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
+import { HabitsProvider } from './contexts/HabitsContext';
 import { Auth } from './components/Auth';
 import { Dashboard } from './components/Dashboard';
 
@@ -23,7 +24,9 @@ function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <AppContent />
+        <HabitsProvider>
+          <AppContent />
+        </HabitsProvider>
       </AuthProvider>
     </ThemeProvider>
   );
