@@ -1,5 +1,0 @@
-- [ ] Create HabitsContext to manage shared habits state across components
-- [ ] Move habits logic from useHabits hook to HabitsContext
-- [ ] Update useHabits hook to use the context
-- [ ] Wrap App with HabitsProvider
-- [ ] Test that habit saves update UI without reload
