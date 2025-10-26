@@ -58,9 +58,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // Store theme in localStorage for immediate access
       if (data?.theme) {
-        localStorage.setItem('theme', data.theme);
-        // Dispatch custom event to notify ThemeContext of theme change
-        window.dispatchEvent(new CustomEvent('themeChange', { detail: data.theme }));
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('theme', data.theme);
+          // Dispatch custom event to notify ThemeContext of theme change
+          window.dispatchEvent(new CustomEvent('themeChange', { detail: data.theme }));
+        }
       }
     } catch (error) {
       console.error('Error loading profile:', error);
@@ -121,6 +123,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     if (profile) {
       setProfile({ ...profile, ...updates });
+    }
+
+    // If theme was updated, save to localStorage and dispatch event
+    if (updates.theme && typeof window !== 'undefined') {
+      localStorage.setItem('theme', updates.theme);
+      window.dispatchEvent(new CustomEvent('themeChange', { detail: updates.theme }));
     }
   }
 

@@ -3,7 +3,7 @@ import { useHabits } from '../hooks/useHabits';
 import { ChevronLeft, ChevronRight, CheckCircle2 } from 'lucide-react';
 
 export function CalendarView() {
-  const { habits, isCompleted, toggleCompletion } = useHabits();
+  const { habits, isCompleted } = useHabits();
   const [currentDate, setCurrentDate] = useState(new Date());
 
   const year = currentDate.getFullYear();

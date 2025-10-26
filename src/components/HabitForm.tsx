@@ -22,6 +22,10 @@ export function HabitForm({ habitId, onClose }: Props) {
   const [icon, setIcon] = useState(ICONS[0]);
   const [frequency, setFrequency] = useState<'daily' | 'weekly'>('daily');
   const [targetDays, setTargetDays] = useState(7);
+  const [remindersEnabled, setRemindersEnabled] = useState(false);
+  const [reminderTime, setReminderTime] = useState('09:00');
+  const [browserNotifications, setBrowserNotifications] = useState(true);
+  const [emailNotifications, setEmailNotifications] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const errorRef = useRef<HTMLDivElement>(null);
@@ -36,6 +40,10 @@ export function HabitForm({ habitId, onClose }: Props) {
         setIcon(habit.icon);
         setFrequency(habit.frequency as 'daily' | 'weekly');
         setTargetDays(habit.target_days);
+        setRemindersEnabled(habit.reminders_enabled);
+        setReminderTime(habit.reminder_time || '09:00');
+        setBrowserNotifications(habit.browser_notifications ?? true);
+        setEmailNotifications(habit.email_notifications ?? false);
       }
     }
     setError(''); // Clear any previous errors
@@ -55,6 +63,10 @@ export function HabitForm({ habitId, onClose }: Props) {
         icon,
         frequency,
         target_days: targetDays,
+        reminder_time: remindersEnabled ? reminderTime : null,
+        reminders_enabled: remindersEnabled,
+        browser_notifications: browserNotifications,
+        email_notifications: emailNotifications,
       });
     } else {
       await createHabit({
@@ -65,18 +77,22 @@ export function HabitForm({ habitId, onClose }: Props) {
         frequency,
         target_days: targetDays,
         is_active: true,
+        reminder_time: remindersEnabled ? reminderTime : null,
+        reminders_enabled: remindersEnabled,
+        browser_notifications: browserNotifications,
+        email_notifications: emailNotifications,
       });
     }
     onClose();
-  } catch (error: any) {
-    const errorMessage = error?.message || 'An error occurred while saving the habit.';
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'An error occurred while saving the habit.';
     setError(errorMessage);
-    
+
     // Scroll to error after state update
     setTimeout(() => {
-      errorRef.current?.scrollIntoView({ 
-        behavior: 'smooth', 
-        block: 'center' 
+      errorRef.current?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center'
       });
     }, 100);
   } finally {
@@ -222,6 +238,100 @@ export function HabitForm({ habitId, onClose }: Props) {
                 onChange={(e) => setTargetDays(parseInt(e.target.value))}
                 className="w-full"
               />
+            </div>
+          )}
+
+          <div>
+            <label className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                checked={remindersEnabled}
+                onChange={(e) => setRemindersEnabled(e.target.checked)}
+                className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
+              />
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Enable Reminders
+              </span>
+            </label>
+          </div>
+
+          {remindersEnabled && (
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
+                  Reminder Settings
+                </span>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    When should we remind you?
+                  </label>
+                  <input
+                    type="time"
+                    value={reminderTime}
+                    onChange={(e) => setReminderTime(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-lg font-mono"
+                  />
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Choose your preferred reminder time. We'll send both browser notifications and email reminders.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-3 p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                  <div className="flex-shrink-0">
+                    <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center">
+                      <span className="text-blue-600 dark:text-blue-400 text-sm">🔔</span>
+                    </div>
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">
+                      Browser Notifications
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Get instant reminders in your browser
+                    </p>
+                  </div>
+                  <div className="flex-shrink-0">
+                    <label className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={browserNotifications}
+                        onChange={(e) => setBrowserNotifications(e.target.checked)}
+                        className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
+                      />
+                    </label>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                  <div className="flex-shrink-0">
+                    <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900/50 rounded-full flex items-center justify-center">
+                      <span className="text-purple-600 dark:text-purple-400 text-sm">📧</span>
+                    </div>
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">
+                      Email Reminders
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Receive email notifications as backup
+                    </p>
+                  </div>
+                  <div className="flex-shrink-0">
+                    <label className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={emailNotifications}
+                        onChange={(e) => setEmailNotifications(e.target.checked)}
+                        className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
+                      />
+                    </label>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
