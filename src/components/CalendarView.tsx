@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { useHabits } from '../hooks/useHabits';
 import { ChevronLeft, ChevronRight, CheckCircle2 } from 'lucide-react';
+import { Habit } from '../lib/supabase'; // Import the Habit type
 
 export function CalendarView() {
-  const { habits, isCompleted, toggleCompletion } = useHabits();
+  const { habits, isCompleted } = useHabits();
   const [currentDate, setCurrentDate] = useState(new Date());
 
   const year = currentDate.getFullYear();
@@ -12,7 +13,7 @@ export function CalendarView() {
   const firstDay = new Date(year, month, 1);
   const lastDay = new Date(year, month + 1, 0);
   const daysInMonth = lastDay.getDate();
-  const startingDayOfWeek = firstDay.getDay();
+  const startingDayOfWeek = firstDay.getDay(); // 0 = Sunday
 
   const monthName = currentDate.toLocaleString('default', { month: 'long', year: 'numeric' });
 
@@ -24,18 +25,30 @@ export function CalendarView() {
     setCurrentDate(new Date(year, month + 1, 1));
   }
 
-  function getDayData(day: number) {
+  // Returns the list of active habits for the day and the date string
+  function getDayData(day: number): { activeHabits: Habit[], dateStr: string } {
     const date = new Date(year, month, day);
     const dateStr = date.toISOString().split('T')[0];
-    const completed = habits.filter(h => isCompleted(h.id, dateStr)).length;
-    const total = habits.length;
-    return { completed, total, percentage: total > 0 ? (completed / total) * 100 : 0 };
+    const dayOfWeek = date.getDay(); // 0 = Sunday
+
+    // Filter habits active on this specific day
+    const activeHabits = habits.filter(h => {
+      const frequency = (h.frequency as any) === 'weekly' ? 'custom' : h.frequency;
+      const activeDays = frequency === 'daily'
+        ? [0, 1, 2, 3, 4, 5, 6]
+        : (h.active_days || []);
+      return activeDays.includes(dayOfWeek);
+    });
+
+    return { activeHabits, dateStr };
   }
 
   const days = [];
+  // Add empty placeholders for days before the 1st of the month
   for (let i = 0; i < startingDayOfWeek; i++) {
     days.push(null);
   }
+  // Add actual days
   for (let i = 1; i <= daysInMonth; i++) {
     days.push(i);
   }
@@ -61,51 +74,83 @@ export function CalendarView() {
           </div>
         </div>
 
-        <div className="grid grid-cols-7 gap-2">
+        {/* --- CALENDAR GRID --- */}
+        <div className="grid grid-cols-7 gap-1 md:gap-2"> {/* Reduced gap slightly */}
+          {/* Day Headers */}
           {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
             <div
               key={day}
-              className="text-center text-sm font-medium text-gray-600 dark:text-gray-400 py-2"
+              className="text-center text-xs md:text-sm font-medium text-gray-600 dark:text-gray-400 py-2"
             >
               {day}
             </div>
           ))}
 
+          {/* Calendar Day Cells */}
           {days.map((day, index) => {
             if (day === null) {
+              // Empty cell for padding days
               return <div key={`empty-${index}`} />;
             }
 
-            const { completed, total, percentage } = getDayData(day);
+            // Get data for this specific day
+            const { activeHabits, dateStr } = getDayData(day);
             const date = new Date(year, month, day);
             const isToday =
               date.getDate() === new Date().getDate() &&
               date.getMonth() === new Date().getMonth() &&
               date.getFullYear() === new Date().getFullYear();
 
+            // Limit icons shown directly in the cell
+            const maxIconsToShow = 4; // Adjust based on desired cell size/density
+            const iconsToDisplay = activeHabits.slice(0, maxIconsToShow);
+            const remainingCount = activeHabits.length - maxIconsToShow;
+
             return (
               <div
                 key={day}
-                className={`aspect-square p-2 rounded-lg border transition-all ${
+                // Cell container styling
+                className={`min-h-[6rem] md:min-h-[8rem] p-1 md:p-2 rounded-lg border flex flex-col items-start ${
                   isToday
-                    ? 'border-blue-500 dark:border-blue-400 bg-blue-50 dark:bg-blue-900/30'
-                    : 'border-gray-200 dark:border-gray-700'
+                    ? 'border-blue-500 dark:border-blue-400 bg-blue-50 dark:bg-blue-900/30' // Highlight today
+                    : 'border-gray-200 dark:border-gray-700' // Default border
                 }`}
+                title={activeHabits.map(h => h.name).join(', ')} // Tooltip shows all habit names
               >
-                <div className="text-sm font-medium text-gray-900 dark:text-white mb-1">
+                {/* Day Number */}
+                <div className="text-xs md:text-sm font-medium text-gray-900 dark:text-white mb-1 self-end">
                   {day}
                 </div>
-                {total > 0 && (
-                  <div className="space-y-1">
-                    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
-                      <div
-                        className="bg-green-500 h-1.5 rounded-full transition-all"
-                        style={{ width: `${percentage}%` }}
-                      />
-                    </div>
-                    <div className="text-xs text-gray-600 dark:text-gray-400">
-                      {completed}/{total}
-                    </div>
+
+                {/* Display Habit Icons if any are active */}
+                {activeHabits.length > 0 && (
+                  <div className="grid grid-cols-2 gap-0.5 mt-1 text-xs md:text-sm w-full"> {/* Grid layout for icons */}
+                    {/* Map through habits active today (up to maxIconsToShow) */}
+                    {iconsToDisplay.map(habit => {
+                      const completed = isCompleted(habit.id, dateStr); // Check if this habit is completed today
+                      return (
+                        <div
+                          key={habit.id}
+                          className="flex items-center" // Align icon and checkmark
+                          title={`${habit.name}${completed ? ' (Completed)' : ''}`} // Tooltip for icon
+                        >
+                          {/* Habit Icon */}
+                          <span className={`p-0.5 rounded ${completed ? 'opacity-100' : 'opacity-50'}`}> {/* Dim uncompleted */}
+                            {habit.icon}
+                          </span>
+                          {/* Green Checkmark if Completed */}
+                          {completed && (
+                            <CheckCircle2 className="w-2 h-2 md:w-3 md:h-3 text-green-500 ml-0.5 flex-shrink-0" />
+                          )}
+                        </div>
+                      );
+                    })}
+                    {/* Show "+X more" if not all icons fit */}
+                    {remainingCount > 0 && (
+                      <span className="text-gray-500 dark:text-gray-400 text-xs self-center col-span-2 text-center mt-1">
+                        +{remainingCount} more
+                      </span>
+                    )}
                   </div>
                 )}
               </div>
@@ -114,15 +159,35 @@ export function CalendarView() {
         </div>
       </div>
 
+      {/* --- HABIT DETAILS BELOW CALENDAR (Unchanged from previous update) --- */}
       <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
-        <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Habit Details</h3>
+        <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Habit Details ({monthName})</h3>
         <div className="space-y-4">
           {habits.map(habit => {
-            const monthCompletions = Array.from({ length: daysInMonth }, (_, i) => {
-              const date = new Date(year, month, i + 1);
-              const dateStr = date.toISOString().split('T')[0];
-              return isCompleted(habit.id, dateStr);
-            }).filter(Boolean).length;
+            const frequency = (habit.frequency as any) === 'weekly' ? 'custom' : habit.frequency;
+            const habitActiveDays = frequency === 'daily'
+              ? [0, 1, 2, 3, 4, 5, 6]
+              : (habit.active_days || []);
+
+            let activeDayCountInMonth = 0;
+            let completedCountInMonth = 0;
+
+            for (let i = 1; i <= daysInMonth; i++) {
+              const date = new Date(year, month, i);
+              const dayOfWeek = date.getDay();
+
+              if (habitActiveDays.includes(dayOfWeek)) {
+                activeDayCountInMonth++;
+                const dateStr = date.toISOString().split('T')[0];
+                if (isCompleted(habit.id, dateStr)) {
+                  completedCountInMonth++;
+                }
+              }
+            }
+
+            const percentage = activeDayCountInMonth > 0
+              ? Math.round((completedCountInMonth / activeDayCountInMonth) * 100)
+              : 0;
 
             return (
               <div
@@ -139,14 +204,14 @@ export function CalendarView() {
                   <div>
                     <h4 className="font-semibold text-gray-900 dark:text-white">{habit.name}</h4>
                     <p className="text-sm text-gray-600 dark:text-gray-400">
-                      {monthCompletions} completions this month
+                      {completedCountInMonth} / {activeDayCountInMonth} completions this month
                     </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="w-5 h-5 text-green-500" />
                   <span className="text-lg font-bold text-gray-900 dark:text-white">
-                    {Math.round((monthCompletions / daysInMonth) * 100)}%
+                    {percentage}%
                   </span>
                 </div>
               </div>

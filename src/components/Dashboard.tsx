@@ -18,6 +18,7 @@ export function Dashboard() {
   const [editingHabit, setEditingHabit] = useState<string | null>(null);
 
   const today = new Date().toISOString().split('T')[0];
+  const todayDay = new Date().getDay(); // 0 = Sunday, 1 = Monday, etc.
   const isDarkMode = theme === 'dark';
 
   if (loading) {
@@ -28,8 +29,18 @@ export function Dashboard() {
     );
   }
 
-  const completedToday = habits.filter(h => isCompleted(h.id, today)).length;
-  const totalActive = habits.length;
+  // Filter habits to only those active today
+  const activeHabitsToday = habits.filter(habit => {
+    // Handle old 'weekly' data as 'custom'
+    const frequency = (habit.frequency as any) === 'weekly' ? 'custom' : habit.frequency;
+    const activeDays = frequency === 'daily' 
+      ? [0, 1, 2, 3, 4, 5, 6] 
+      : (habit.active_days || []);
+    return activeDays.includes(todayDay);
+  });
+
+  const completedToday = activeHabitsToday.filter(h => isCompleted(h.id, today)).length;
+  const totalActive = activeHabitsToday.length; // Use filtered list
 
   return (
     <div className={isDarkMode ? 'dark' : ''}>
@@ -128,7 +139,7 @@ export function Dashboard() {
                       <Flame className="w-6 h-6 text-orange-600 dark:text-orange-400" />
                     </div>
                     <div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">Active Habits</p>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">Active Habits Today</p>
                       <p className="text-2xl font-bold text-gray-900 dark:text-white">{totalActive}</p>
                     </div>
                   </div>
@@ -160,12 +171,16 @@ export function Dashboard() {
                 </button>
               </div>
 
-              {habits.length === 0 ? (
+              {activeHabitsToday.length === 0 ? (
                 <div className="bg-white dark:bg-gray-800 rounded-xl p-12 text-center border border-gray-200 dark:border-gray-700">
                   <Circle className="w-16 h-16 text-gray-400 dark:text-gray-600 mx-auto mb-4" />
-                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">No habits yet</h3>
+                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+                    {habits.length === 0 ? "No habits yet" : "No habits for today"}
+                  </h3>
                   <p className="text-gray-600 dark:text-gray-400 mb-6">
-                    Start building better habits by creating your first one
+                    {habits.length === 0 
+                      ? "Start building better habits by creating your first one"
+                      : "Enjoy your day off, or create a new habit!"}
                   </p>
                   <button
                     onClick={() => setShowHabitForm(true)}
@@ -177,7 +192,7 @@ export function Dashboard() {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {habits.map(habit => {
+                  {activeHabitsToday.map(habit => {
                     const completed = isCompleted(habit.id, today);
                     const streak = getStreak(habit.id);
 
