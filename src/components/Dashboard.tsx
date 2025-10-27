@@ -7,6 +7,7 @@ import { ProgressView } from './ProgressView';
 import { NotificationsPanel } from './NotificationsPanel';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { Footer } from './Footer';
 
 type View = 'dashboard' | 'calendar' | 'progress';
 
@@ -54,7 +55,7 @@ export function Dashboard() {
 
   return (
     <div className={isDarkMode ? 'dark' : ''}>
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors flex flex-col">
         <nav className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between items-center h-16">
@@ -100,7 +101,7 @@ export function Dashboard() {
           </div>
         </nav>
 
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <main className="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full mb-24">
           <div className="flex gap-2 mb-8 border-b border-gray-200 dark:border-gray-700">
             <button
               onClick={() => setCurrentView('dashboard')}
@@ -275,7 +276,9 @@ export function Dashboard() {
 
           {currentView === 'calendar' && <CalendarView />}
           {currentView === 'progress' && <ProgressView />}
-        </div>
+        </main>
+
+        <Footer />  
 
         {showHabitForm && (
           <HabitForm
