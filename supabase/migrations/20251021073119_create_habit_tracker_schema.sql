@@ -189,3 +189,43 @@ CREATE TRIGGER update_habits_updated_at
   BEFORE UPDATE ON habits
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
+
+-- Drop the old frequency CHECK constraint
+ALTER TABLE habits
+DROP CONSTRAINT habits_frequency_check;
+
+-- Add new constraint for 'daily' and 'custom'
+ALTER TABLE habits
+ADD CONSTRAINT habits_frequency_check CHECK (frequency IN ('daily', 'custom'));
+
+-- Add the new active_days column.
+-- It's an array of small integers (0-6)
+-- We'll default it to all days (daily)
+ALTER TABLE habits
+ADD COLUMN active_days smallint[] DEFAULT ARRAY[0, 1, 2, 3, 4, 5, 6]::smallint[];
+
+-- (Optional) We don't need the target_days column anymore
+-- ALTER TABLE habits DROP COLUMN target_days;
+
+-- Update the RLS policy for 'habits' to include the new column
+-- Find your existing "Users can insert own habits" policy and modify it
+-- (or drop and re-add)
+DROP POLICY "Users can insert own habits" ON habits;
+CREATE POLICY "Users can insert own habits"
+  ON habits FOR INSERT
+  TO authenticated
+  WITH CHECK (
+    auth.uid() = user_id AND
+    array_length(active_days, 1) BETWEEN 1 AND 7 -- Ensure 1-7 days are selected
+  );
+
+-- Find and update the "Users can update own habits" policy
+DROP POLICY "Users can update own habits" ON habits;
+CREATE POLICY "Users can update own habits"
+  ON habits FOR UPDATE
+  TO authenticated
+  USING (auth.uid() = user_id)
+  WITH CHECK (
+    auth.uid() = user_id AND
+    array_length(active_days, 1) BETWEEN 1 AND 7 -- Ensure 1-7 days are selected
+  );

@@ -5,24 +5,42 @@ export function ProgressView() {
   const { habits, completions, getStreak } = useHabits();
 
   function exportData(format: 'json' | 'csv') {
-    const data = habits.map(habit => ({
-      name: habit.name,
-      description: habit.description,
-      frequency: habit.frequency,
-      streak: getStreak(habit.id),
-      totalCompletions: completions.filter(c => c.habit_id === habit.id).length,
-      createdAt: habit.created_at,
-    }));
+    const data = habits.map(habit => {
+      const frequency = (habit.frequency as any) === 'weekly' ? 'custom' : habit.frequency;
+      const activeDaysList = habit.active_days || [];
+      const activeDays = frequency === 'daily' ? 'All' : activeDaysList.join(',');
+
+      return {
+        name: habit.name,
+        description: habit.description,
+        frequency: frequency,
+        active_days_csv: activeDays,
+        active_days_json: activeDaysList,
+        streak: getStreak(habit.id),
+        totalCompletions: completions.filter(c => c.habit_id === habit.id).length,
+        createdAt: habit.created_at,
+      };
+    });
 
     if (format === 'json') {
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const jsonData = data.map(d => ({ 
+        name: d.name, 
+        description: d.description, 
+        frequency: d.frequency, 
+        active_days: d.active_days_json, 
+        streak: d.streak, 
+        totalCompletions: d.totalCompletions, 
+        createdAt: d.createdAt 
+      }));
+      const blob = new Blob([JSON.stringify(jsonData, null, 2)], { type: 'application/json' });
       downloadFile(blob, 'habit-tracker-data.json');
     } else {
-      const headers = ['Name', 'Description', 'Frequency', 'Streak', 'Total Completions', 'Created At'];
+      const headers = ['Name', 'Description', 'Frequency', 'Active Days (0=Sun)', 'Streak', 'Total Completions', 'Created At'];
       const rows = data.map(d => [
-        d.name,
-        d.description,
+        `"${d.name.replace(/"/g, '""')}"`, // Handle potential commas in names
+        `"${d.description.replace(/"/g, '""')}"`,
         d.frequency,
+        d.active_days_csv,
         d.streak,
         d.totalCompletions,
         d.createdAt,
@@ -56,14 +74,45 @@ export function ProgressView() {
     return days;
   }
 
+  // Updated completion rate logic
   function getCompletionRate(habitId: string): number {
-    const last30 = getLast30DaysCompletions(habitId);
-    const completed = last30.filter(d => d === 1).length;
-    return Math.round((completed / 30) * 100);
+    const habit = habits.find(h => h.id === habitId);
+    if (!habit) return 0;
+
+    const frequency = (habit.frequency as any) === 'weekly' ? 'custom' : habit.frequency;
+    const activeDays = frequency === 'daily' 
+      ? [0, 1, 2, 3, 4, 5, 6] 
+      : (habit.active_days || []);
+    
+    if (activeDays.length === 0) return 0;
+    
+    let activeDaysInPeriod = 0;
+    let completedInPeriod = 0;
+    let checkDate = new Date();
+
+    for (let i = 0; i < 30; i++) { // Check last 30 days
+      const dayOfWeek = checkDate.getDay();
+      if (activeDays.includes(dayOfWeek)) {
+        // This was an active day
+        activeDaysInPeriod++;
+        const dateStr = checkDate.toISOString().split('T')[0];
+        if (completions.some(c => c.habit_id === habitId && c.completed_date === dateStr)) {
+          completedInPeriod++;
+        }
+      }
+      // Move to the previous day
+      checkDate.setDate(checkDate.getDate() - 1);
+    }
+    
+    return activeDaysInPeriod > 0 
+      ? Math.round((completedInPeriod / activeDaysInPeriod) * 100) 
+      : 0; // Avoid division by zero
   }
 
   const totalCompletions = completions.length;
   const longestStreak = Math.max(...habits.map(h => getStreak(h.id)), 0);
+  
+  // This average is now correct as it uses the new getCompletionRate
   const averageRate = habits.length > 0
     ? Math.round(habits.reduce((sum, h) => sum + getCompletionRate(h.id), 0) / habits.length)
     : 0;
@@ -136,6 +185,12 @@ export function ProgressView() {
             const totalHabitCompletions = completions.filter(c => c.habit_id === habit.id).length;
             const last30Days = getLast30DaysCompletions(habit.id);
 
+            // Get active days for this habit
+            const frequency = (habit.frequency as any) === 'weekly' ? 'custom' : habit.frequency;
+            const habitActiveDays = frequency === 'daily' 
+              ? [0, 1, 2, 3, 4, 5, 6] 
+              : (habit.active_days || []);
+
             return (
               <div key={habit.id} className="border-b border-gray-200 dark:border-gray-700 pb-6 last:border-0">
                 <div className="flex items-center gap-3 mb-4">
@@ -169,17 +224,30 @@ export function ProgressView() {
                 <div>
                   <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">Last 30 Days</p>
                   <div className="flex gap-1">
-                    {last30Days.map((completed, index) => (
-                      <div
-                        key={index}
-                        className={`flex-1 h-8 rounded ${
-                          completed
-                            ? 'bg-green-500'
-                            : 'bg-gray-200 dark:bg-gray-700'
-                        }`}
-                        title={`Day ${index + 1}`}
-                      />
-                    ))}
+                    {/* Updated 30-day view logic */}
+                    {last30Days.map((completed, index) => {
+                      const date = new Date();
+                      date.setDate(date.getDate() - (29 - index));
+                      const dayOfWeek = date.getDay();
+                      const isActiveDay = habitActiveDays.includes(dayOfWeek);
+
+                      let bgColor;
+                      if (!isActiveDay) {
+                        bgColor = 'bg-gray-100 dark:bg-gray-800'; // Skipped day
+                      } else {
+                        bgColor = completed
+                          ? 'bg-green-500' // Active and completed
+                          : 'bg-gray-200 dark:bg-gray-700'; // Active and missed
+                      }
+
+                      return (
+                        <div
+                          key={index}
+                          className={`flex-1 h-8 rounded ${bgColor}`}
+                          title={date.toDateString()}
+                        />
+                      );
+                    })}
                   </div>
                 </div>
               </div>

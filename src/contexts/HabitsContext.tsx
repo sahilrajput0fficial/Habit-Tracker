@@ -10,7 +10,9 @@ type Habit = {
   description: string;
   color: string;
   icon: string;
-  frequency: 'daily' | 'weekly' | 'custom';
+  frequency: 'daily' | 'custom'; // Updated
+  active_days: number[]; // Added
+  // target_days: number; // No longer used, but keep for now to avoid breaking DB type
   target_days: number;
   is_active: boolean;
   reminder_time: string | null;
@@ -36,7 +38,7 @@ type HabitsContextType = {
   habits: Habit[];
   completions: HabitCompletion[];
   loading: boolean;
-  createHabit: (habit: Omit<Habit, 'id' | 'user_id' | 'created_at' | 'updated_at'>) => Promise<Habit>;
+  createHabit: (habit: Omit<Habit, 'id' | 'user_id' | 'created_at' | 'updated_at' | 'target_days'> & { target_days?: number }) => Promise<Habit>; // Make target_days optional
   updateHabit: (id: string, updates: Partial<Habit>) => Promise<void>;
   deleteHabit: (id: string) => Promise<void>;
   toggleCompletion: (habitId: string, date: string) => Promise<void>;
@@ -167,7 +169,7 @@ export function HabitsProvider({ children }: HabitsProviderProps) {
 
 
 
-  async function createHabit(habit: Omit<Habit, 'id' | 'user_id' | 'created_at' | 'updated_at'>) {
+  async function createHabit(habit: Omit<Habit, 'id' | 'user_id' | 'created_at' | 'updated_at' | 'target_days'> & { target_days?: number }) {
     if (!user) {
       console.error('No user found! Cannot create habit.');
       throw new Error('You must be logged in to create a habit.');
@@ -189,7 +191,8 @@ export function HabitsProvider({ children }: HabitsProviderProps) {
     try {
       const { data, error } = await supabase
         .from('habits')
-        .insert({ ...habit, user_id: user.id })
+        .insert({ ...habit, user_id: user.id ,active_days: habit.frequency === 'daily' ? [0,1,2,3,4,5,6] : habit.active_days,
+          target_days: 7})
         .select()
         .single();
 
@@ -218,6 +221,10 @@ export function HabitsProvider({ children }: HabitsProviderProps) {
       if (duplicate) {
         throw new Error('A habit with this name already exists. Please choose a different name.');
       }
+    }
+    // Ensure 'daily' habits save with all days
+    if (updates.frequency === 'daily') {
+      updates.active_days = [0, 1, 2, 3, 4, 5, 6];
     }
 
     const { error } = await supabase
@@ -280,18 +287,42 @@ export function HabitsProvider({ children }: HabitsProviderProps) {
   }
 
   function getStreak(habitId: string): number {
-    const today = new Date();
-    let streak = 0;
-    const currentDate = new Date(today);
+    const habit = habits.find(h => h.id === habitId);
+    if (!habit) return 0;
 
-    while (true) {
-      const dateStr = currentDate.toISOString().split('T')[0];
-      if (isCompleted(habitId, dateStr)) {
-        streak++;
-        currentDate.setDate(currentDate.getDate() - 1);
-      } else {
-        break;
+    // Use active_days, default to all days for 'daily'
+    const activeDays = habit.frequency === 'daily' 
+      ? [0, 1, 2, 3, 4, 5, 6] 
+      : (habit.active_days || []);
+    
+    if (activeDays.length === 0) return 0; // No active days, no streak
+
+    let streak = 0;
+    let currentDate = new Date();
+
+    // 1. Check if today is active and uncompleted. If so, streak is 0.
+    const todayDay = currentDate.getDay();
+    const todayStr = currentDate.toISOString().split('T')[0];
+    if (activeDays.includes(todayDay) && !isCompleted(habitId, todayStr)) {
+      return 0; // Today is an active day and it's not done, so streak is 0.
+    }
+    
+    // 2. Loop backwards from today.
+    for (let i = 0; i < 365; i++) { // Limit to 1 year
+      const dayOfWeek = currentDate.getDay();
+      
+      if (activeDays.includes(dayOfWeek)) {
+        // This is an active day
+        const dateStr = currentDate.toISOString().split('T')[0];
+        if (isCompleted(habitId, dateStr)) {
+          streak++;
+        } else {
+          // Found a past, active, uncompleted day. Streak ends.
+          break;
+        }
       }
+      // If not an active day, just skip it and check the day before.
+      currentDate.setDate(currentDate.getDate() - 1);
     }
 
     return streak;
