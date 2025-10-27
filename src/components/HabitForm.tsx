@@ -30,7 +30,7 @@ export function HabitForm({ habitId, onClose }: Props) {
   const [frequency, setFrequency] = useState<'daily' | 'custom'>('daily');
   const [activeDays, setActiveDays] = useState<number[]>(ALL_DAYS); // New state
   
-  const [frequency, setFrequency] = useState<'daily' | 'weekly'>('daily');
+
   const [targetDays, setTargetDays] = useState(7);
   const [remindersEnabled, setRemindersEnabled] = useState(false);
   const [reminderTime, setReminderTime] = useState('09:00');
@@ -57,7 +57,6 @@ export function HabitForm({ habitId, onClose }: Props) {
           setFrequency(habit.frequency as 'daily' | 'custom');
           setActiveDays(habit.active_days || ALL_DAYS);
         }
-        setFrequency(habit.frequency as 'daily' | 'weekly');
         setTargetDays(habit.target_days);
         setRemindersEnabled(habit.reminders_enabled);
         setReminderTime(habit.reminder_time || '09:00');
@@ -90,51 +89,12 @@ export function HabitForm({ habitId, onClose }: Props) {
   }
 
   async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setSaving(true);
-    setError(''); // Clear previous errors
+  e.preventDefault();
+  setSaving(true);
+  setError('');
 
-    // Ensure 'daily' frequency always has all days
-    const finalActiveDays = frequency === 'daily' ? ALL_DAYS : activeDays;
+  const finalActiveDays = frequency === 'daily' ? ALL_DAYS : activeDays;
 
-    try {
-      if (habitId) {
-        await updateHabit(habitId, {
-          name,
-          description,
-          color,
-          icon,
-          frequency,
-          active_days: finalActiveDays, // Use new active_days
-          // target_days is no longer sent
-        });
-      } else {
-        await createHabit({
-          name,
-          description,
-          color,
-          icon,
-          frequency,
-          active_days: finalActiveDays, // Use new active_days
-          is_active: true,
-          target_days: 7, // Pass default for deprecated column
-        });
-      }
-      onClose();
-    } catch (error: any) {
-      const errorMessage = error?.message || 'An error occurred while saving the habit.';
-      setError(errorMessage);
-      
-      // Scroll to error after state update
-      setTimeout(() => {
-        errorRef.current?.scrollIntoView({ 
-          behavior: 'smooth', 
-          block: 'center' 
-        });
-      }, 100);
-    } finally {
-      setSaving(false);
-    }
   try {
     if (habitId) {
       await updateHabit(habitId, {
@@ -143,6 +103,7 @@ export function HabitForm({ habitId, onClose }: Props) {
         color,
         icon,
         frequency,
+        active_days: finalActiveDays,
         target_days: targetDays,
         reminder_time: remindersEnabled ? reminderTime : null,
         reminders_enabled: remindersEnabled,
@@ -151,34 +112,39 @@ export function HabitForm({ habitId, onClose }: Props) {
       });
     } else {
       await createHabit({
-        name,
-        description,
-        color,
-        icon,
-        frequency,
-        target_days: targetDays,
-        is_active: true,
-        reminder_time: remindersEnabled ? reminderTime : null,
-        reminders_enabled: remindersEnabled,
-        browser_notifications: browserNotifications,
-        email_notifications: emailNotifications,
-      });
+  name,
+  description,
+  color,
+  icon,
+  frequency,
+  active_days: finalActiveDays,
+  is_active: true,
+  target_days: 7,
+  reminder_time: remindersEnabled ? reminderTime : null,
+  reminders_enabled: remindersEnabled,
+  browser_notifications: browserNotifications,
+  email_notifications: emailNotifications,
+  snoozed_until: null, // default
+  snooze_duration: 0,  // default
+});
+
     }
     onClose();
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'An error occurred while saving the habit.';
     setError(errorMessage);
 
-    // Scroll to error after state update
     setTimeout(() => {
       errorRef.current?.scrollIntoView({
         behavior: 'smooth',
-        block: 'center'
+        block: 'center',
       });
     }, 100);
   } finally {
     setSaving(false);
   }
+}
+
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">

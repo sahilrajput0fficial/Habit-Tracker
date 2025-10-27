@@ -49,8 +49,7 @@ export function Dashboard() {
 
   const completedToday = activeHabitsToday.filter(h => isCompleted(h.id, today)).length;
   const totalActive = activeHabitsToday.length; // Use filtered list
-  const completedToday = habits.filter(h => isCompleted(h.id, today)).length;
-  const totalActive = habits.length;
+
   const reminderCount = habits.filter(h => h.reminders_enabled && h.reminder_time).length;
 
   return (
