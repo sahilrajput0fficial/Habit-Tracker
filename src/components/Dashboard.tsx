@@ -5,6 +5,7 @@ import { HabitForm } from './HabitForm';
 import { CalendarView } from './CalendarView';
 import { ProgressView } from './ProgressView';
 import { NotificationsPanel } from './NotificationsPanel';
+import { SuggestedHabits, Onboarding } from './Onboarding';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 
@@ -39,6 +40,8 @@ export function Dashboard() {
   const completedToday = habits.filter(h => isCompleted(h.id, today)).length;
   const totalActive = habits.length;
   const reminderCount = habits.filter(h => h.reminders_enabled && h.reminder_time).length;
+
+
 
   return (
     <div className={isDarkMode ? 'dark' : ''}>
@@ -254,6 +257,9 @@ export function Dashboard() {
                   })}
                 </div>
               )}
+
+              {/* Show suggested habits below user habits only if user has habits */}
+              {habits.length > 0 && <SuggestedHabits />}
             </>
           )}
 
@@ -270,6 +276,9 @@ export function Dashboard() {
             }}
           />
         )}
+
+        {/* Show onboarding modal for new users with no habits */}
+        <Onboarding />
       </div>
     </div>
   );
