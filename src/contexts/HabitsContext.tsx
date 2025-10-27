@@ -1,6 +1,7 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
+import { scheduleHabitReminder, cancelHabitReminder, scheduleEmailReminder, notificationManager } from '../utils/notifications';
 
 type Habit = {
   id: string;
@@ -12,6 +13,12 @@ type Habit = {
   frequency: 'daily' | 'weekly' | 'custom';
   target_days: number;
   is_active: boolean;
+  reminder_time: string | null;
+  reminders_enabled: boolean;
+  browser_notifications: boolean;
+  email_notifications: boolean;
+  snoozed_until: string | null;
+  snooze_duration: number | null;
   created_at: string;
   updated_at: string;
 };
@@ -35,6 +42,9 @@ type HabitsContextType = {
   toggleCompletion: (habitId: string, date: string) => Promise<void>;
   isCompleted: (habitId: string, date: string) => boolean;
   getStreak: (habitId: string) => number;
+  snoozeHabit: (habitId: string, durationMinutes: number) => Promise<void>;
+  unsnoozeHabit: (habitId: string) => Promise<void>;
+  isHabitSnoozed: (habitId: string) => boolean;
   refreshHabits: () => Promise<void>;
   refreshCompletions: () => Promise<void>;
 };
@@ -59,18 +69,7 @@ export function HabitsProvider({ children }: HabitsProviderProps) {
   const [completions, setCompletions] = useState<HabitCompletion[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (user) {
-      loadHabits();
-      loadCompletions();
-    } else {
-      setHabits([]);
-      setCompletions([]);
-      setLoading(false);
-    }
-  }, [user]);
-
-  async function loadHabits() {
+  const loadHabits = useCallback(async () => {
     try {
       console.log('Loading habits for user:', user?.id);
       const { data, error } = await supabase
@@ -90,9 +89,9 @@ export function HabitsProvider({ children }: HabitsProviderProps) {
     } finally {
       setLoading(false);
     }
-  }
+  }, [user?.id]);
 
-  async function loadCompletions() {
+  const loadCompletions = useCallback(async () => {
     try {
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -110,7 +109,63 @@ export function HabitsProvider({ children }: HabitsProviderProps) {
     } catch (error) {
       console.error('Error loading completions:', error);
     }
-  }
+  }, []);
+
+  const setupNotifications = useCallback(() => {
+    if (!notificationManager.isSupported()) {
+      console.warn('Notifications not supported in this browser');
+      return;
+    }
+
+    // Request permission if not already granted
+    notificationManager.requestPermission().then(permission => {
+      if (permission.granted) {
+        // Cancel all existing notifications first
+        notificationManager.cancelAllScheduledNotifications();
+
+        // Schedule notifications and email reminders for habits with reminders enabled
+        habits.forEach(habit => {
+          if (habit.reminders_enabled && habit.reminder_time) {
+            // Skip scheduling if habit is currently snoozed
+            if (isHabitSnoozed(habit.id)) {
+              return;
+            }
+
+            if (habit.browser_notifications) {
+              scheduleHabitReminder(habit.id, habit.name, habit.reminder_time);
+            }
+            // Also schedule email reminders if user has email and email notifications are enabled
+            if (user?.email && habit.email_notifications) {
+              scheduleEmailReminder(habit.id, habit.name, user.email, habit.reminder_time);
+            }
+          }
+        });
+      } else {
+        console.warn('Notification permission not granted');
+      }
+    });
+  }, [habits, user?.email]);
+
+  useEffect(() => {
+    if (user) {
+      loadHabits();
+      loadCompletions();
+    } else {
+      setHabits([]);
+      setCompletions([]);
+      notificationManager.cancelAllScheduledNotifications();
+      setLoading(false);
+    }
+  }, [user, loadHabits, loadCompletions]);
+
+  // Set up notifications when habits change
+  useEffect(() => {
+    if (user && habits.length > 0) {
+      setupNotifications();
+    }
+  }, [habits, user, setupNotifications]);
+
+
 
   async function createHabit(habit: Omit<Habit, 'id' | 'user_id' | 'created_at' | 'updated_at'>) {
     if (!user) {
@@ -182,6 +237,9 @@ export function HabitsProvider({ children }: HabitsProviderProps) {
 
     if (error) throw error;
     setHabits(habits.filter(h => h.id !== id));
+
+    // Cancel any scheduled notifications for this habit
+    cancelHabitReminder(id);
   }
 
   async function toggleCompletion(habitId: string, date: string) {
@@ -239,6 +297,62 @@ export function HabitsProvider({ children }: HabitsProviderProps) {
     return streak;
   }
 
+  async function snoozeHabit(habitId: string, durationMinutes: number) {
+    const snoozedUntil = new Date();
+    snoozedUntil.setMinutes(snoozedUntil.getMinutes() + durationMinutes);
+
+    const { error } = await supabase
+      .from('habits')
+      .update({
+        snoozed_until: snoozedUntil.toISOString(),
+        snooze_duration: durationMinutes
+      })
+      .eq('id', habitId);
+
+    if (error) throw error;
+
+    setHabits(habits.map(h =>
+      h.id === habitId
+        ? { ...h, snoozed_until: snoozedUntil.toISOString(), snooze_duration: durationMinutes }
+        : h
+    ));
+
+    // Cancel current notification for this habit
+    cancelHabitReminder(habitId);
+  }
+
+  async function unsnoozeHabit(habitId: string) {
+    const { error } = await supabase
+      .from('habits')
+      .update({
+        snoozed_until: null,
+        snooze_duration: null
+      })
+      .eq('id', habitId);
+
+    if (error) throw error;
+
+    setHabits(habits.map(h =>
+      h.id === habitId
+        ? { ...h, snoozed_until: null, snooze_duration: null }
+        : h
+    ));
+
+    // Reschedule notification for this habit
+    const habit = habits.find(h => h.id === habitId);
+    if (habit && habit.reminders_enabled && habit.reminder_time && habit.browser_notifications) {
+      scheduleHabitReminder(habit.id, habit.name, habit.reminder_time);
+    }
+  }
+
+  function isHabitSnoozed(habitId: string): boolean {
+    const habit = habits.find(h => h.id === habitId);
+    if (!habit || !habit.snoozed_until) return false;
+
+    const snoozedUntil = new Date(habit.snoozed_until);
+    return snoozedUntil > new Date();
+  }
+
   const value: HabitsContextType = {
     habits,
     completions,
@@ -249,6 +363,9 @@ export function HabitsProvider({ children }: HabitsProviderProps) {
     toggleCompletion,
     isCompleted,
     getStreak,
+    snoozeHabit,
+    unsnoozeHabit,
+    isHabitSnoozed,
     refreshHabits: loadHabits,
     refreshCompletions: loadCompletions,
   };

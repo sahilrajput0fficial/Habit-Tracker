@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useHabits } from '../hooks/useHabits';
-import { Plus, CheckCircle2, Circle, Flame, Calendar, TrendingUp, Menu, Moon, Sun, LogOut } from 'lucide-react';
+import { Plus, CheckCircle2, Circle, Flame, Calendar, TrendingUp, Menu, Moon, Sun, LogOut, Bell } from 'lucide-react';
 import { HabitForm } from './HabitForm';
 import { CalendarView } from './CalendarView';
 import { ProgressView } from './ProgressView';
+import { NotificationsPanel } from './NotificationsPanel';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 
@@ -16,9 +17,16 @@ export function Dashboard() {
   const [currentView, setCurrentView] = useState<View>('dashboard');
   const [showHabitForm, setShowHabitForm] = useState(false);
   const [editingHabit, setEditingHabit] = useState<string | null>(null);
+  const [showNotifications, setShowNotifications] = useState(false);
 
   const today = new Date().toISOString().split('T')[0];
   const isDarkMode = theme === 'dark';
+
+  // Force theme application on mount
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.toggle('dark', isDarkMode);
+  }, [isDarkMode]);
 
   if (loading) {
     return (
@@ -30,6 +38,7 @@ export function Dashboard() {
 
   const completedToday = habits.filter(h => isCompleted(h.id, today)).length;
   const totalActive = habits.length;
+  const reminderCount = habits.filter(h => h.reminders_enabled && h.reminder_time).length;
 
   return (
     <div className={isDarkMode ? 'dark' : ''}>
@@ -45,6 +54,23 @@ export function Dashboard() {
               </div>
 
               <div className="flex items-center gap-2">
+                <div className="relative">
+                  <button
+                    onClick={() => setShowNotifications(!showNotifications)}
+                    className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors relative"
+                  >
+                    <Bell className="w-5 h-5" />
+                    {reminderCount > 0 && (
+                      <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                        {reminderCount}
+                      </span>
+                    )}
+                  </button>
+                  <NotificationsPanel
+                    isOpen={showNotifications}
+                    onClose={() => setShowNotifications(false)}
+                  />
+                </div>
                 <button
                   onClick={toggleTheme}
                   className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
