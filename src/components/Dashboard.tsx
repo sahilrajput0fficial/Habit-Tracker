@@ -1,24 +1,26 @@
 import { useState, useEffect } from 'react';
 import { useHabits } from '../hooks/useHabits';
-import { Plus, CheckCircle2, Circle, Flame, Calendar, TrendingUp, Menu, Moon, Sun, LogOut, Bell } from 'lucide-react';
+import { Plus, CheckCircle2, Circle, Flame, Calendar, TrendingUp, Menu, Moon, Sun, LogOut, Bell, Edit, Trash2, BookOpen } from 'lucide-react';
 import { HabitForm } from './HabitForm';
 import { CalendarView } from './CalendarView';
 import { ProgressView } from './ProgressView';
 import { NotificationsPanel } from './NotificationsPanel';
+import { HistoryView } from './HistoryView';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { Footer } from './Footer';
 
-type View = 'dashboard' | 'calendar' | 'progress';
+type View = 'dashboard' | 'calendar' | 'progress' | 'history';
 
 export function Dashboard() {
-  const { habits, loading, toggleCompletion, isCompleted, getStreak } = useHabits();
+  const { habits, loading, toggleCompletion, isCompleted, getStreak, deleteHabit } = useHabits();
   const { signOut } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [currentView, setCurrentView] = useState<View>('dashboard');
   const [showHabitForm, setShowHabitForm] = useState(false);
   const [editingHabit, setEditingHabit] = useState<string | null>(null);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [deletingHabit, setDeletingHabit] = useState<string | null>(null);
 
   const today = new Date().toISOString().split('T')[0];
   const todayDay = new Date().getDay(); // 0 = Sunday, 1 = Monday, etc.
@@ -29,6 +31,21 @@ export function Dashboard() {
     const root = document.documentElement;
     root.classList.toggle('dark', isDarkMode);
   }, [isDarkMode]);
+
+  const handleEditHabit = (habitId: string) => {
+    setEditingHabit(habitId);
+    setShowHabitForm(true);
+  };
+
+  const handleDeleteHabit = async (habitId: string) => {
+    try {
+      await deleteHabit(habitId);
+      setDeletingHabit(null);
+    } catch (error) {
+      console.error('Error deleting habit:', error);
+      alert('Failed to delete habit. Please try again.');
+    }
+  };
 
   if (loading) {
     return (
@@ -142,6 +159,19 @@ export function Dashboard() {
                 <span>Progress</span>
               </div>
             </button>
+            <button
+              onClick={() => setCurrentView('history')}
+              className={`px-4 py-2 font-medium transition-colors ${
+                currentView === 'history'
+                  ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <BookOpen className="w-4 h-4" />
+                <span>History</span>
+              </div>
+            </button>
           </div>
 
           {currentView === 'dashboard' && (
@@ -230,19 +260,35 @@ export function Dashboard() {
                         className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow"
                       >
                         <div className="flex items-start justify-between mb-4">
-                          <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-3 flex-1">
                             <div
                               className="w-10 h-10 rounded-lg flex items-center justify-center"
                               style={{ backgroundColor: habit.color + '20' }}
                             >
                               <span className="text-2xl">{habit.icon}</span>
                             </div>
-                            <div>
+                            <div className="flex-1 min-w-0">
                               <h3 className="font-semibold text-gray-900 dark:text-white">{habit.name}</h3>
                               {habit.description && (
-                                <p className="text-sm text-gray-600 dark:text-gray-400">{habit.description}</p>
+                                <p className="text-sm text-gray-600 dark:text-gray-400 truncate">{habit.description}</p>
                               )}
                             </div>
+                          </div>
+                          <div className="flex items-center gap-1 ml-2">
+                            <button
+                              onClick={() => handleEditHabit(habit.id)}
+                              className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                              title="Edit habit"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => setDeletingHabit(habit.id)}
+                              className="p-2 text-gray-600 dark:text-gray-400 hover:bg-red-100 dark:hover:bg-red-900/30 hover:text-red-600 dark:hover:text-red-400 rounded-lg transition-colors"
+                              title="Delete habit"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
                           </div>
                         </div>
 
@@ -276,6 +322,7 @@ export function Dashboard() {
 
           {currentView === 'calendar' && <CalendarView />}
           {currentView === 'progress' && <ProgressView />}
+          {currentView === 'history' && <HistoryView />}
         </main>
 
         <Footer />  
@@ -288,6 +335,35 @@ export function Dashboard() {
               setEditingHabit(null);
             }}
           />
+        )}
+
+        {deletingHabit && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 max-w-md w-full shadow-2xl">
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+                Delete Habit?
+              </h3>
+              <p className="text-gray-600 dark:text-gray-400 mb-6">
+                Are you sure you want to delete this habit? This action cannot be undone, 
+                but your history will be preserved.
+              </p>
+              <div className="flex gap-3 justify-end">
+                <button
+                  onClick={() => setDeletingHabit(null)}
+                  className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => handleDeleteHabit(deletingHabit)}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </div>

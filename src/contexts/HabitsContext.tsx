@@ -34,9 +34,20 @@ type HabitCompletion = {
   created_at: string;
 };
 
+type HabitHistory = {
+  id: string;
+  habit_id: string;
+  user_id: string;
+  habit_name: string;
+  action: 'created' | 'updated' | 'deleted';
+  changes: Record<string, any>;
+  created_at: string;
+};
+
 type HabitsContextType = {
   habits: Habit[];
   completions: HabitCompletion[];
+  history: HabitHistory[];
   loading: boolean;
   createHabit: (habit: Omit<Habit, 'id' | 'user_id' | 'created_at' | 'updated_at' | 'target_days'> & { target_days?: number }) => Promise<Habit>; // Make target_days optional
   updateHabit: (id: string, updates: Partial<Habit>) => Promise<void>;
@@ -49,6 +60,7 @@ type HabitsContextType = {
   isHabitSnoozed: (habitId: string) => boolean;
   refreshHabits: () => Promise<void>;
   refreshCompletions: () => Promise<void>;
+  loadHistory: () => Promise<void>;
 };
 
 const HabitsContext = createContext<HabitsContextType | undefined>(undefined);
@@ -69,6 +81,7 @@ export function HabitsProvider({ children }: HabitsProviderProps) {
   const { user } = useAuth();
   const [habits, setHabits] = useState<Habit[]>([]);
   const [completions, setCompletions] = useState<HabitCompletion[]>([]);
+  const [history, setHistory] = useState<HabitHistory[]>([]);
   const [loading, setLoading] = useState(true);
 
   const loadHabits = useCallback(async () => {
@@ -113,6 +126,25 @@ export function HabitsProvider({ children }: HabitsProviderProps) {
     }
   }, []);
 
+  const loadHistory = useCallback(async () => {
+    if (!user) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('habit_history')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error loading history:', error);
+        throw error;
+      }
+      setHistory(data || []);
+    } catch (error) {
+      console.error('Error loading history:', error);
+    }
+  }, [user]);
+
   const setupNotifications = useCallback(() => {
     if (!notificationManager.isSupported()) {
       console.warn('Notifications not supported in this browser');
@@ -152,13 +184,15 @@ export function HabitsProvider({ children }: HabitsProviderProps) {
     if (user) {
       loadHabits();
       loadCompletions();
+      loadHistory();
     } else {
       setHabits([]);
       setCompletions([]);
+      setHistory([]);
       notificationManager.cancelAllScheduledNotifications();
       setLoading(false);
     }
-  }, [user, loadHabits, loadCompletions]);
+  }, [user, loadHabits, loadCompletions, loadHistory]);
 
   // Set up notifications when habits change
   useEffect(() => {
@@ -387,6 +421,7 @@ export function HabitsProvider({ children }: HabitsProviderProps) {
   const value: HabitsContextType = {
     habits,
     completions,
+    history,
     loading,
     createHabit,
     updateHabit,
@@ -399,6 +434,7 @@ export function HabitsProvider({ children }: HabitsProviderProps) {
     isHabitSnoozed,
     refreshHabits: loadHabits,
     refreshCompletions: loadCompletions,
+    loadHistory,
   };
 
   return (
