@@ -78,6 +78,41 @@ export function HistoryView() {
         {entries.map(([key, value]) => {
           // Handle different types of changes
           if (typeof value === 'object' && value !== null && 'old' in value && 'new' in value) {
+            // Special handling for color changes - show color swatches
+            if (key === 'color') {
+              return (
+                <div key={key} className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-2">
+                  <span className="font-medium capitalize">{key.replace(/_/g, ' ')}:</span>
+                  <div className="flex items-center gap-1">
+                    <div 
+                      className="w-6 h-6 rounded border-2 border-gray-300 dark:border-gray-600"
+                      style={{ backgroundColor: String(value.old) }}
+                      title={String(value.old)}
+                    />
+                    <span>→</span>
+                    <div 
+                      className="w-6 h-6 rounded border-2 border-gray-300 dark:border-gray-600"
+                      style={{ backgroundColor: String(value.new) }}
+                      title={String(value.new)}
+                    />
+                  </div>
+                </div>
+              );
+            }
+            // Special handling for icon changes - show emoji/icons
+            if (key === 'icon') {
+              return (
+                <div key={key} className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-2">
+                  <span className="font-medium capitalize">{key.replace(/_/g, ' ')}:</span>
+                  <div className="flex items-center gap-1">
+                    <span className="text-2xl">{String(value.old)}</span>
+                    <span>→</span>
+                    <span className="text-2xl">{String(value.new)}</span>
+                  </div>
+                </div>
+              );
+            }
+            // Default handling for other changes
             return (
               <div key={key} className="text-sm text-gray-600 dark:text-gray-400">
                 <span className="font-medium capitalize">{key.replace(/_/g, ' ')}:</span>{' '}
