@@ -153,6 +153,7 @@ export function HistoryView() {
             value={filterAction}
             onChange={(e) => setFilterAction(e.target.value as any)}
             className="pl-10 pr-8 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-white appearance-none cursor-pointer"
+            aria-label="Filter habit history by action type"
           >
             <option value="all">All Actions</option>
             <option value="created">Created</option>
