@@ -36,6 +36,7 @@ export function Dashboard() {
   const [showPrebuiltManager, setShowPrebuiltManager] = useState(false);
 
   const today = new Date().toISOString().split('T')[0];
+  const todayDay = new Date().getDay(); // 0 = Sunday, 1 = Monday, etc.
   const isDarkMode = theme === 'dark';
 
   // Apply theme on mount
@@ -51,9 +52,28 @@ export function Dashboard() {
     );
   }
 
+<<<<<<< HEAD
   const completedToday = habits.filter((h) => isCompleted(h.id, today)).length;
   const totalActive = habits.length;
   const reminderCount = habits.filter((h) => h.reminders_enabled && h.reminder_time).length;
+=======
+  // Filter habits to only those active today
+  const activeHabitsToday = habits.filter(habit => {
+    // Handle old 'weekly' data as 'custom'
+    const frequency = (habit.frequency as any) === 'weekly' ? 'custom' : habit.frequency;
+    const activeDays = frequency === 'daily' 
+      ? [0, 1, 2, 3, 4, 5, 6] 
+      : (habit.active_days || []);
+    return activeDays.includes(todayDay);
+  });
+
+  const completedToday = activeHabitsToday.filter(h => isCompleted(h.id, today)).length;
+  const totalActive = activeHabitsToday.length; // Use filtered list
+
+  const reminderCount = habits.filter(h => h.reminders_enabled && h.reminder_time).length;
+
+
+>>>>>>> 21e0e57bf130956d5221e7590dbb6cf218e39550
 
   return (
     <div className={isDarkMode ? 'dark' : ''}>
@@ -175,7 +195,37 @@ export function Dashboard() {
                       </div>
                     </div>
                   </div>
+<<<<<<< HEAD
                 ))}
+=======
+                </div>
+
+                <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/30 rounded-lg flex items-center justify-center">
+                      <Flame className="w-6 h-6 text-orange-600 dark:text-orange-400" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">Active Habits Today</p>
+                      <p className="text-2xl font-bold text-gray-900 dark:text-white">{totalActive}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
+                      <Calendar className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">Completion Rate</p>
+                      <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                        {totalActive > 0 ? Math.round((completedToday / totalActive) * 100) : 0}%
+                      </p>
+                    </div>
+                  </div>
+                </div>
+>>>>>>> 21e0e57bf130956d5221e7590dbb6cf218e39550
               </div>
 
               {/* Habits Section */}
@@ -190,15 +240,25 @@ export function Dashboard() {
                 </button>
               </div>
 
+<<<<<<< HEAD
               {/* Habit Cards */}
               {habits.length === 0 ? (
                 <div className="bg-white dark:bg-gray-800 rounded-xl p-12 text-center border border-gray-200 dark:border-gray-700">
                   <Circle className="w-16 h-16 text-gray-400 dark:text-gray-600 mx-auto mb-4" />
                   <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
                     No habits yet
+=======
+              {activeHabitsToday.length === 0 ? (
+                <div className="bg-white dark:bg-gray-800 rounded-xl p-12 text-center border border-gray-200 dark:border-gray-700">
+                  <Circle className="w-16 h-16 text-gray-400 dark:text-gray-600 mx-auto mb-4" />
+                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+                    {habits.length === 0 ? "No habits yet" : "No habits for today"}
+>>>>>>> 21e0e57bf130956d5221e7590dbb6cf218e39550
                   </h3>
                   <p className="text-gray-600 dark:text-gray-400 mb-6">
-                    Start building better habits by creating your first one
+                    {habits.length === 0 
+                      ? "Start building better habits by creating your first one"
+                      : "Enjoy your day off, or create a new habit!"}
                   </p>
                   <button
                     onClick={() => setShowHabitForm(true)}
@@ -210,7 +270,11 @@ export function Dashboard() {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+<<<<<<< HEAD
                   {habits.map((habit) => {
+=======
+                  {activeHabitsToday.map(habit => {
+>>>>>>> 21e0e57bf130956d5221e7590dbb6cf218e39550
                     const completed = isCompleted(habit.id, today);
                     const streak = getStreak(habit.id);
 

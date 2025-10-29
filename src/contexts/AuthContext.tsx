@@ -1,6 +1,6 @@
-import { createContext, useContext, useEffect, useState } from 'react';
-import { User } from '@supabase/supabase-js';
-import { supabase, Profile } from '../lib/supabase';
+import { createContext, useContext, useEffect, useState } from "react";
+import { User } from "@supabase/supabase-js";
+import { supabase, Profile } from "../lib/supabase";
 
 type AuthContextType = {
   user: User | null;
@@ -29,8 +29,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('Auth state change:', event, { user: !!session?.user });
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log("Auth state change:", event, { user: !!session?.user });
       (async () => {
         setUser(session?.user ?? null);
         if (session?.user) {
@@ -48,9 +50,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   async function loadProfile(userId: string) {
     try {
       const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
+        .from("profiles")
+        .select("*")
+        .eq("id", userId)
         .maybeSingle();
 
       if (error) throw error;
@@ -58,14 +60,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // Store theme in localStorage for immediate access
       if (data?.theme) {
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('theme', data.theme);
+        if (typeof window !== "undefined") {
+          localStorage.setItem("theme", data.theme);
           // Dispatch custom event to notify ThemeContext of theme change
-          window.dispatchEvent(new CustomEvent('themeChange', { detail: data.theme }));
+          window.dispatchEvent(
+            new CustomEvent("themeChange", { detail: data.theme })
+          );
         }
       }
     } catch (error) {
-      console.error('Error loading profile:', error);
+      console.error("Error loading profile:", error);
     } finally {
       setLoading(false);
     }
@@ -85,22 +89,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (error) throw error;
 
     if (data.user) {
-      console.log('Creating profile for user:', data.user.id);
-      const { error: profileError } = await supabase.from('profiles').insert({
+      console.log("Creating profile for user:", data.user.id);
+      const { error: profileError } = await supabase.from("profiles").insert({
         id: data.user.id,
         email: data.user.email!,
         full_name: fullName,
-        theme: 'light',
+        theme: "light",
       });
 
       if (profileError) {
-        console.error('Profile creation error:', profileError);
+        console.error("Profile creation error:", profileError);
         throw profileError;
       }
-      console.log('Profile created successfully');
 
-      // After successful signup and profile creation, sign the user in automatically
-      console.log('Auto-signing in user after signup...');
+      console.log("Profile created successfully");
+      console.log("Auto-signing in user after signup...");
       await signIn(email, password);
     }
   }
@@ -110,9 +113,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       email,
       password,
     });
-
     if (error) throw error;
-    console.log('Sign in successful');
+    console.log("Sign in successful");
   }
 
   async function signOut() {
@@ -124,9 +126,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!user) return;
 
     const { error } = await supabase
-      .from('profiles')
+      .from("profiles")
       .update(updates)
-      .eq('id', user.id);
+      .eq("id", user.id);
 
     if (error) throw error;
 
@@ -135,9 +137,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     // If theme was updated, save to localStorage and dispatch event
-    if (updates.theme && typeof window !== 'undefined') {
-      localStorage.setItem('theme', updates.theme);
-      window.dispatchEvent(new CustomEvent('themeChange', { detail: updates.theme }));
+    if (updates.theme && typeof window !== "undefined") {
+      localStorage.setItem("theme", updates.theme);
+      window.dispatchEvent(
+        new CustomEvent("themeChange", { detail: updates.theme })
+      );
     }
   }
 
@@ -153,7 +157,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 }

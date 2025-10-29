@@ -28,8 +28,9 @@ export type Habit = {
   description: string;
   color: string;
   icon: string;
-  frequency: 'daily' | 'weekly' | 'custom';
-  target_days: number;
+  frequency: 'daily' | 'custom'; // Updated
+  active_days: number[]; // Added
+  // target_days: number; // This is no longer used
   is_active: boolean;
   created_at: string;
   updated_at: string;

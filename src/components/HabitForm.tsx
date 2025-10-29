@@ -9,6 +9,11 @@ const COLORS = [
 
 const ICONS = ['🎯', '📚', '💪', '🧘', '🏃', '💻', '🎨', '🎵', '✍️', '🌱'];
 
+// New constants for custom days
+const WEEK_DAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
+const WEEKDAYS = [1, 2, 3, 4, 5]; // Default for custom
+
 type Props = {
   habitId: string | null;
   onClose: () => void;
@@ -32,7 +37,12 @@ export function HabitForm({ habitId, onClose, initial }: Props) {
   const [description, setDescription] = useState('');
   const [color, setColor] = useState(COLORS[0]);
   const [icon, setIcon] = useState(ICONS[0]);
-  const [frequency, setFrequency] = useState<'daily' | 'weekly'>('daily');
+  
+  // Updated state for frequency
+  const [frequency, setFrequency] = useState<'daily' | 'custom'>('daily');
+  const [activeDays, setActiveDays] = useState<number[]>(ALL_DAYS); // New state
+  
+
   const [targetDays, setTargetDays] = useState(7);
   const [remindersEnabled, setRemindersEnabled] = useState(false);
   const [reminderTime, setReminderTime] = useState('09:00');
@@ -50,13 +60,22 @@ export function HabitForm({ habitId, onClose, initial }: Props) {
         setDescription(habit.description);
         setColor(habit.color);
         setIcon(habit.icon);
-        setFrequency(habit.frequency as 'daily' | 'weekly');
+        
+        // Handle old 'weekly' frequency as 'custom'
+        if ((habit.frequency as any) === 'weekly') {
+          setFrequency('custom');
+          setActiveDays(WEEKDAYS); // Default old 'weekly' habits to weekdays
+        } else {
+          setFrequency(habit.frequency as 'daily' | 'custom');
+          setActiveDays(habit.active_days || ALL_DAYS);
+        }
         setTargetDays(habit.target_days);
         setRemindersEnabled(habit.reminders_enabled);
         setReminderTime(habit.reminder_time || '09:00');
         setBrowserNotifications(habit.browser_notifications ?? true);
         setEmailNotifications(habit.email_notifications ?? false);
       }
+<<<<<<< HEAD
     } else if (initial) {
       if (initial.name) setName(initial.name);
       if (initial.description !== undefined) setDescription(initial.description);
@@ -68,14 +87,39 @@ export function HabitForm({ habitId, onClose, initial }: Props) {
       if (typeof initial.browser_notifications === 'boolean') setBrowserNotifications(initial.browser_notifications);
       if (typeof initial.email_notifications === 'boolean') setEmailNotifications(initial.email_notifications);
       if (initial.reminder_time) setReminderTime(initial.reminder_time);
+=======
+    } else {
+      // Set defaults for new habit
+      setFrequency('daily');
+      setActiveDays(ALL_DAYS);
+>>>>>>> 21e0e57bf130956d5221e7590dbb6cf218e39550
     }
     setError(''); // Clear any previous errors
   }, [habitId, habits, initial]);
 
+  // New function to toggle weekdays
+  function toggleDay(dayIndex: number) {
+    if (frequency !== 'custom') return; // Should not be possible
+
+    let newActiveDays;
+    if (activeDays.includes(dayIndex)) {
+      newActiveDays = activeDays.filter(d => d !== dayIndex);
+    } else {
+      newActiveDays = [...activeDays, dayIndex].sort();
+    }
+    
+    // Don't allow unselecting all days
+    if (newActiveDays.length > 0) {
+      setActiveDays(newActiveDays);
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
   e.preventDefault();
   setSaving(true);
-  setError(''); // Clear previous errors
+  setError('');
+
+  const finalActiveDays = frequency === 'daily' ? ALL_DAYS : activeDays;
 
   try {
     if (habitId) {
@@ -85,6 +129,7 @@ export function HabitForm({ habitId, onClose, initial }: Props) {
         color,
         icon,
         frequency,
+        active_days: finalActiveDays,
         target_days: targetDays,
         reminder_time: remindersEnabled ? reminderTime : null,
         reminders_enabled: remindersEnabled,
@@ -92,6 +137,7 @@ export function HabitForm({ habitId, onClose, initial }: Props) {
         email_notifications: emailNotifications,
       });
     } else {
+<<<<<<< HEAD
       const payload: Parameters<typeof createHabit>[0] = {
         name,
         description,
@@ -108,23 +154,42 @@ export function HabitForm({ habitId, onClose, initial }: Props) {
         snooze_duration: null,
       };
       await createHabit(payload);
+=======
+      await createHabit({
+  name,
+  description,
+  color,
+  icon,
+  frequency,
+  active_days: finalActiveDays,
+  is_active: true,
+  target_days: 7,
+  reminder_time: remindersEnabled ? reminderTime : null,
+  reminders_enabled: remindersEnabled,
+  browser_notifications: browserNotifications,
+  email_notifications: emailNotifications,
+  snoozed_until: null, // default
+  snooze_duration: 0,  // default
+});
+
+>>>>>>> 21e0e57bf130956d5221e7590dbb6cf218e39550
     }
     onClose();
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'An error occurred while saving the habit.';
     setError(errorMessage);
 
-    // Scroll to error after state update
     setTimeout(() => {
       errorRef.current?.scrollIntoView({
         behavior: 'smooth',
-        block: 'center'
+        block: 'center',
       });
     }, 100);
   } finally {
     setSaving(false);
   }
 }
+
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -217,6 +282,7 @@ export function HabitForm({ habitId, onClose, initial }: Props) {
             </div>
           </div>
 
+          {/* --- MODIFIED FREQUENCY SECTION --- */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Frequency
@@ -226,7 +292,7 @@ export function HabitForm({ habitId, onClose, initial }: Props) {
                 type="button"
                 onClick={() => {
                   setFrequency('daily');
-                  setTargetDays(7);
+                  setActiveDays(ALL_DAYS);
                 }}
                 className={`p-3 rounded-lg border-2 transition-all ${frequency === 'daily'
                   ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
@@ -238,35 +304,48 @@ export function HabitForm({ habitId, onClose, initial }: Props) {
               <button
                 type="button"
                 onClick={() => {
-                  setFrequency('weekly');
-                  setTargetDays(3);
+                  setFrequency('custom');
+                  // Default to weekdays if switching from daily
+                  if (frequency === 'daily') {
+                    setActiveDays(WEEKDAYS);
+                  }
                 }}
-                className={`p-3 rounded-lg border-2 transition-all ${frequency === 'weekly'
+                className={`p-3 rounded-lg border-2 transition-all ${frequency === 'custom'
                   ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
                   : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 text-gray-700 dark:text-gray-300'
                   }`}
               >
-                Weekly
+                Custom
               </button>
             </div>
           </div>
 
-          {frequency === 'weekly' && (
+          {/* --- NEW WEEKDAY PICKER --- */}
+          {frequency === 'custom' && (
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Target Days per Week: {targetDays}
+                Active Days
               </label>
-              <input
-                type="range"
-                min="1"
-                max="7"
-                value={targetDays}
-                onChange={(e) => setTargetDays(parseInt(e.target.value))}
-                className="w-full"
-              />
+              <div className="grid grid-cols-7 gap-2">
+                {WEEK_DAYS.map((day, index) => (
+                  <button
+                    key={index}
+                    type="button"
+                    onClick={() => toggleDay(index)}
+                    className={`p-3 font-medium rounded-lg border-2 transition-all text-center ${
+                      activeDays.includes(index)
+                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                        : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 text-gray-700 dark:text-gray-300'
+                    }`}
+                  >
+                    {day}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 
+          {/* --- REMOVED 'weekly' range slider --- */}
           <div>
             <label className="flex items-center space-x-2">
               <input
