@@ -64,7 +64,7 @@ A modern, open-source habit tracker built with **React**, **TypeScript**, **Vite
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/Ayush-Raj-Chourasia/Habit-Tracker.git
+   git clone https://github.com/Charushi06/Habit-Tracker.git
    cd Habit-Tracker
    ```
 
