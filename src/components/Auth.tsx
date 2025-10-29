@@ -20,7 +20,7 @@ export function Auth() {
       console.log('Attempting auth:', { isSignUp, email });
       if (isSignUp) {
         await signUp(email, password, fullName);
-        console.log('Sign up completed');
+        console.log('Sign up completed - should redirect to dashboard now');
       } else {
         await signIn(email, password);
         console.log('Sign in completed');

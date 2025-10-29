@@ -203,53 +203,37 @@ export const cancelHabitReminder = (habitId: string): void => {
   notificationManager.cancelScheduledNotification(`habit-${habitId}`);
 };
 
+import emailjs from '@emailjs/browser';
+
 // Email reminder functions
 export const sendEmailReminder = async (reminder: EmailReminder): Promise<boolean> => {
   try {
-    // For now, we'll use a simple email service. In production, you'd want to use a proper email service like SendGrid, Mailgun, etc.
-    // This is a placeholder implementation that would need to be replaced with actual email sending logic
+    // EmailJS configuration - you'll need to replace these with your actual EmailJS service details
+    const serviceId = 'your_service_id'; // Replace with your EmailJS service ID
+    const templateId = 'your_template_id'; // Replace with your EmailJS template ID
+    const publicKey = 'your_public_key'; // Replace with your EmailJS public key
 
-    const emailData = {
-      to: reminder.userEmail,
+    // Initialize EmailJS with your public key
+    emailjs.init(publicKey);
+
+    const templateParams = {
+      to_email: reminder.userEmail,
       subject: `Habit Reminder: ${reminder.habitName}`,
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #3B82F6;">Habit Reminder</h2>
-          <p>Hello!</p>
-          <p>This is a reminder to complete your habit: <strong>${reminder.habitName}</strong></p>
-          <p>Scheduled time: ${formatTime(reminder.reminderTime)}</p>
-          <p>Don't forget to stay on track with your goals!</p>
-          <br>
-          <p>Best regards,<br>Your Habit Tracker</p>
-        </div>
-      `,
-      text: `
-        Habit Reminder
-
-        Hello!
-
-        This is a reminder to complete your habit: ${reminder.habitName}
-        Scheduled time: ${formatTime(reminder.reminderTime)}
-
-        Don't forget to stay on track with your goals!
-
-        Best regards,
-        Your Habit Tracker
-      `
+      habit_name: reminder.habitName,
+      reminder_time: formatTime(reminder.reminderTime),
+      message: 'Don\'t forget to stay on track with your goals!',
     };
 
-    // Placeholder for email sending - replace with actual email service
-    console.log('Sending email reminder:', emailData);
+    // Send email using EmailJS
+    const result = await emailjs.send(serviceId, templateId, templateParams);
 
-    // Simulate email sending (replace with actual API call)
-    // const response = await fetch('/api/send-email', {
-    //   method: 'POST',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify(emailData)
-    // });
-
-    // For now, just return true to indicate success
-    return true;
+    if (result.status === 200) {
+      console.log('Email reminder sent successfully:', result.text);
+      return true;
+    } else {
+      console.error('Failed to send email reminder:', result.text);
+      return false;
+    }
   } catch (error) {
     console.error('Error sending email reminder:', error);
     return false;

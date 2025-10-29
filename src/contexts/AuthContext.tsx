@@ -60,10 +60,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // Store theme in localStorage for immediate access
       if (data?.theme) {
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('theme', data.theme);
+        if (typeof window !== "undefined") {
+          localStorage.setItem("theme", data.theme);
           // Dispatch custom event to notify ThemeContext of theme change
-          window.dispatchEvent(new CustomEvent('themeChange', { detail: data.theme }));
+          window.dispatchEvent(
+            new CustomEvent("themeChange", { detail: data.theme })
+          );
         }
       }
     } catch (error) {
@@ -74,27 +76,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function signUp(email: string, password: string, fullName: string) {
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      data: { full_name: fullName },
-    },
-  });
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          full_name: fullName,
+        },
+      },
+    });
 
-  if (error) throw error;
+    if (error) throw error;
 
-  if (data.user) {
-    await loadProfile(data.user.id);
+    if (data.user) {
+      console.log("Creating profile for user:", data.user.id);
+      const { error: profileError } = await supabase.from("profiles").insert({
+        id: data.user.id,
+        email: data.user.email!,
+        full_name: fullName,
+        theme: "light",
+      });
+
+      if (profileError) {
+        console.error("Profile creation error:", profileError);
+        throw profileError;
+      }
+
+      console.log("Profile created successfully");
+      console.log("Auto-signing in user after signup...");
+      await signIn(email, password);
+    }
   }
-}
 
   async function signIn(email: string, password: string) {
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
-
     if (error) throw error;
     console.log("Sign in successful");
   }
@@ -119,9 +137,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     // If theme was updated, save to localStorage and dispatch event
-    if (updates.theme && typeof window !== 'undefined') {
-      localStorage.setItem('theme', updates.theme);
-      window.dispatchEvent(new CustomEvent('themeChange', { detail: updates.theme }));
+    if (updates.theme && typeof window !== "undefined") {
+      localStorage.setItem("theme", updates.theme);
+      window.dispatchEvent(
+        new CustomEvent("themeChange", { detail: updates.theme })
+      );
     }
   }
 
@@ -137,7 +157,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error("useAuth must be used with in an AuthProvider");
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 }
