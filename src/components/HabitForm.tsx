@@ -133,6 +133,7 @@ export function HabitForm({ habitId, onClose, initial }: Props) {
         browser_notifications: browserNotifications,
         email_notifications: emailNotifications,
       });
+    } else {
       const payload: Parameters<typeof createHabit>[0] = {
         name,
         description,
