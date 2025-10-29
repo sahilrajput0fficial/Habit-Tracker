@@ -156,6 +156,7 @@ export function HabitForm({ habitId, onClose }: Props) {
           <button
             onClick={onClose}
             className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+            aria-label="Close habit form"
           >
             <X className="w-5 h-5 text-gray-600 dark:text-gray-400" />
           </button>
@@ -232,6 +233,7 @@ export function HabitForm({ habitId, onClose }: Props) {
                     : 'border-transparent hover:scale-105'
                     }`}
                   style={{ backgroundColor: c }}
+                  aria-label={`Select color ${c}`}
                 />
               ))}
             </div>
@@ -326,10 +328,11 @@ export function HabitForm({ habitId, onClose }: Props) {
 
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <label htmlFor="reminder-time" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     When should we remind you?
                   </label>
                   <input
+                    id="reminder-time"
                     type="time"
                     value={reminderTime}
                     onChange={(e) => setReminderTime(e.target.value)}
@@ -361,6 +364,7 @@ export function HabitForm({ habitId, onClose }: Props) {
                         checked={browserNotifications}
                         onChange={(e) => setBrowserNotifications(e.target.checked)}
                         className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
+                        aria-label="Enable browser notifications"
                       />
                     </label>
                   </div>
@@ -387,6 +391,7 @@ export function HabitForm({ habitId, onClose }: Props) {
                         checked={emailNotifications}
                         onChange={(e) => setEmailNotifications(e.target.checked)}
                         className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
+                        aria-label="Enable email notifications"
                       />
                     </label>
                   </div>
