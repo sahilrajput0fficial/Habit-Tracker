@@ -21,6 +21,7 @@ import { SuggestedHabits, Onboarding } from './Onboarding';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { PrebuiltHabitsManager } from './PrebuiltHabitsManager';
+import { Footer } from './Footer';
 
 type View = 'dashboard' | 'calendar' | 'progress';
 
@@ -36,10 +37,9 @@ export function Dashboard() {
   const [showPrebuiltManager, setShowPrebuiltManager] = useState(false);
 
   const today = new Date().toISOString().split('T')[0];
-  const todayDay = new Date().getDay(); // 0 = Sunday, 1 = Monday, etc.
+  const todayDay = new Date().getDay();
   const isDarkMode = theme === 'dark';
 
-  // Apply theme on mount
   useEffect(() => {
     document.documentElement.classList.toggle('dark', isDarkMode);
   }, [isDarkMode]);
@@ -52,32 +52,21 @@ export function Dashboard() {
     );
   }
 
-<<<<<<< HEAD
-  const completedToday = habits.filter((h) => isCompleted(h.id, today)).length;
-  const totalActive = habits.length;
-  const reminderCount = habits.filter((h) => h.reminders_enabled && h.reminder_time).length;
-=======
   // Filter habits to only those active today
-  const activeHabitsToday = habits.filter(habit => {
-    // Handle old 'weekly' data as 'custom'
+  const activeHabitsToday = habits.filter((habit) => {
     const frequency = (habit.frequency as any) === 'weekly' ? 'custom' : habit.frequency;
-    const activeDays = frequency === 'daily' 
-      ? [0, 1, 2, 3, 4, 5, 6] 
-      : (habit.active_days || []);
+    const activeDays =
+      frequency === 'daily' ? [0, 1, 2, 3, 4, 5, 6] : habit.active_days || [];
     return activeDays.includes(todayDay);
   });
 
-  const completedToday = activeHabitsToday.filter(h => isCompleted(h.id, today)).length;
-  const totalActive = activeHabitsToday.length; // Use filtered list
-
-  const reminderCount = habits.filter(h => h.reminders_enabled && h.reminder_time).length;
-
-
->>>>>>> 21e0e57bf130956d5221e7590dbb6cf218e39550
+  const completedToday = activeHabitsToday.filter((h) => isCompleted(h.id, today)).length;
+  const totalActive = activeHabitsToday.length;
+  const reminderCount = habits.filter((h) => h.reminders_enabled && h.reminder_time).length;
 
   return (
     <div className={isDarkMode ? 'dark' : ''}>
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors flex flex-col">
         {/* Navbar */}
         <nav className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -86,7 +75,9 @@ export function Dashboard() {
                 <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
                   <span className="text-white font-bold">HT</span>
                 </div>
-                <h1 className="text-xl font-bold text-gray-900 dark:text-white">Habit Tracker</h1>
+                <h1 className="text-xl font-bold text-gray-900 dark:text-white">
+                  Habit Tracker
+                </h1>
               </div>
 
               <div className="flex items-center gap-2">
@@ -130,7 +121,7 @@ export function Dashboard() {
         </nav>
 
         {/* Tabs Navigation */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <main className="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full mb-24">
           <div className="flex gap-2 mb-8 border-b border-gray-200 dark:border-gray-700">
             {[
               { id: 'dashboard', icon: Menu, label: 'Dashboard' },
@@ -195,42 +186,14 @@ export function Dashboard() {
                       </div>
                     </div>
                   </div>
-<<<<<<< HEAD
                 ))}
-=======
-                </div>
-
-                <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/30 rounded-lg flex items-center justify-center">
-                      <Flame className="w-6 h-6 text-orange-600 dark:text-orange-400" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">Active Habits Today</p>
-                      <p className="text-2xl font-bold text-gray-900 dark:text-white">{totalActive}</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
-                      <Calendar className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">Completion Rate</p>
-                      <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                        {totalActive > 0 ? Math.round((completedToday / totalActive) * 100) : 0}%
-                      </p>
-                    </div>
-                  </div>
-                </div>
->>>>>>> 21e0e57bf130956d5221e7590dbb6cf218e39550
               </div>
 
               {/* Habits Section */}
               <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Today's Habits</h2>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                  Today's Habits
+                </h2>
                 <button
                   onClick={() => setShowHabitForm(true)}
                   className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
@@ -240,25 +203,17 @@ export function Dashboard() {
                 </button>
               </div>
 
-<<<<<<< HEAD
               {/* Habit Cards */}
-              {habits.length === 0 ? (
-                <div className="bg-white dark:bg-gray-800 rounded-xl p-12 text-center border border-gray-200 dark:border-gray-700">
-                  <Circle className="w-16 h-16 text-gray-400 dark:text-gray-600 mx-auto mb-4" />
-                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-                    No habits yet
-=======
               {activeHabitsToday.length === 0 ? (
                 <div className="bg-white dark:bg-gray-800 rounded-xl p-12 text-center border border-gray-200 dark:border-gray-700">
                   <Circle className="w-16 h-16 text-gray-400 dark:text-gray-600 mx-auto mb-4" />
                   <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-                    {habits.length === 0 ? "No habits yet" : "No habits for today"}
->>>>>>> 21e0e57bf130956d5221e7590dbb6cf218e39550
+                    {habits.length === 0 ? 'No habits yet' : 'No habits for today'}
                   </h3>
                   <p className="text-gray-600 dark:text-gray-400 mb-6">
-                    {habits.length === 0 
-                      ? "Start building better habits by creating your first one"
-                      : "Enjoy your day off, or create a new habit!"}
+                    {habits.length === 0
+                      ? 'Start building better habits by creating your first one'
+                      : 'Enjoy your day off, or create a new habit!'}
                   </p>
                   <button
                     onClick={() => setShowHabitForm(true)}
@@ -270,14 +225,9 @@ export function Dashboard() {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-<<<<<<< HEAD
-                  {habits.map((habit) => {
-=======
-                  {activeHabitsToday.map(habit => {
->>>>>>> 21e0e57bf130956d5221e7590dbb6cf218e39550
+                  {activeHabitsToday.map((habit) => {
                     const completed = isCompleted(habit.id, today);
                     const streak = getStreak(habit.id);
-
                     return (
                       <div
                         key={habit.id}
@@ -292,7 +242,9 @@ export function Dashboard() {
                               <span className="text-2xl">{habit.icon}</span>
                             </div>
                             <div>
-                              <h3 className="font-semibold text-gray-900 dark:text-white">{habit.name}</h3>
+                              <h3 className="font-semibold text-gray-900 dark:text-white">
+                                {habit.name}
+                              </h3>
                               {habit.description && (
                                 <p className="text-sm text-gray-600 dark:text-gray-400">
                                   {habit.description}
@@ -315,7 +267,11 @@ export function Dashboard() {
                                 : 'bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-600'
                             }`}
                           >
-                            {completed ? <CheckCircle2 className="w-6 h-6" /> : <Circle className="w-6 h-6" />}
+                            {completed ? (
+                              <CheckCircle2 className="w-6 h-6" />
+                            ) : (
+                              <Circle className="w-6 h-6" />
+                            )}
                           </button>
                         </div>
                       </div>
@@ -324,14 +280,15 @@ export function Dashboard() {
                 </div>
               )}
 
-              {/* Suggested Habits (each card has own customize button; no separate manager entry) */}
               {habits.length > 0 && <SuggestedHabits />}
             </>
           )}
 
           {currentView === 'calendar' && <CalendarView />}
           {currentView === 'progress' && <ProgressView />}
-        </div>
+        </main>
+
+        <Footer />
 
         {/* Habit Form */}
         {showHabitForm && (
