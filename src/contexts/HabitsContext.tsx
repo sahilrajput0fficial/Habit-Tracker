@@ -23,6 +23,21 @@ type Habit = {
   updated_at: string;
 };
 
+type PrebuiltHabit = {
+  id: string;
+  user_id: string;
+  name: string;
+  description: string;
+  color: string;
+  icon: string;
+  frequency: 'daily' | 'weekly' | 'custom';
+  target_days: number;
+  category: string;
+  is_default: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
 type HabitCompletion = {
   id: string;
   habit_id: string;
@@ -34,6 +49,7 @@ type HabitCompletion = {
 
 type HabitsContextType = {
   habits: Habit[];
+  prebuiltHabits: PrebuiltHabit[];
   completions: HabitCompletion[];
   loading: boolean;
   createHabit: (habit: Omit<Habit, 'id' | 'user_id' | 'created_at' | 'updated_at'>) => Promise<Habit>;
@@ -47,6 +63,11 @@ type HabitsContextType = {
   isHabitSnoozed: (habitId: string) => boolean;
   refreshHabits: () => Promise<void>;
   refreshCompletions: () => Promise<void>;
+  fetchPrebuiltHabits: () => Promise<PrebuiltHabit[]>;
+  createPrebuiltHabit: (habit: Omit<PrebuiltHabit, 'id' | 'user_id' | 'created_at' | 'updated_at'>) => Promise<PrebuiltHabit>;
+  updatePrebuiltHabit: (id: string, updates: Partial<PrebuiltHabit>) => Promise<void>;
+  deletePrebuiltHabit: (id: string) => Promise<void>;
+  seedDefaultPrebuiltHabits: () => Promise<void>;
 };
 
 const HabitsContext = createContext<HabitsContextType | undefined>(undefined);
@@ -66,6 +87,7 @@ interface HabitsProviderProps {
 export function HabitsProvider({ children }: HabitsProviderProps) {
   const { user } = useAuth();
   const [habits, setHabits] = useState<Habit[]>([]);
+  const [prebuiltHabits, setPrebuiltHabits] = useState<PrebuiltHabit[]>([]);
   const [completions, setCompletions] = useState<HabitCompletion[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -150,9 +172,12 @@ export function HabitsProvider({ children }: HabitsProviderProps) {
     if (user) {
       loadHabits();
       loadCompletions();
+      // Also load prebuilt habits so they are visible where needed
+      fetchPrebuiltHabits();
     } else {
       setHabits([]);
       setCompletions([]);
+      setPrebuiltHabits([]);
       notificationManager.cancelAllScheduledNotifications();
       setLoading(false);
     }
@@ -353,8 +378,225 @@ export function HabitsProvider({ children }: HabitsProviderProps) {
     return snoozedUntil > new Date();
   }
 
+  // Prebuilt habits functions
+  async function fetchPrebuiltHabits(): Promise<PrebuiltHabit[]> {
+    if (!user) return [];
+
+    try {
+      const { data, error } = await supabase
+        .from('prebuilt_habits')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const habits = data || [];
+      setPrebuiltHabits(habits);
+      return habits;
+    } catch (error) {
+      console.error('Error fetching prebuilt habits:', error);
+      return [];
+    }
+  }
+
+  async function createPrebuiltHabit(habit: Omit<PrebuiltHabit, 'id' | 'user_id' | 'created_at' | 'updated_at'>): Promise<PrebuiltHabit> {
+    if (!user) throw new Error('You must be logged in to create a prebuilt habit.');
+
+    try {
+      const { data, error } = await supabase
+        .from('prebuilt_habits')
+        .insert({ ...habit, user_id: user.id })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setPrebuiltHabits([data, ...prebuiltHabits]);
+      return data;
+    } catch (error) {
+      console.error('Error creating prebuilt habit:', error);
+      throw error;
+    }
+  }
+
+  async function updatePrebuiltHabit(id: string, updates: Partial<PrebuiltHabit>): Promise<void> {
+    const { error } = await supabase
+      .from('prebuilt_habits')
+      .update(updates)
+      .eq('id', id);
+
+    if (error) throw error;
+
+    setPrebuiltHabits(prebuiltHabits.map(h => h.id === id ? { ...h, ...updates } : h));
+  }
+
+  async function deletePrebuiltHabit(id: string): Promise<void> {
+    const { error } = await supabase
+      .from('prebuilt_habits')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+
+    setPrebuiltHabits(prebuiltHabits.filter(h => h.id !== id));
+  }
+
+  async function seedDefaultPrebuiltHabits(): Promise<void> {
+    if (!user) return;
+
+    // Ensure a profile exists for this user to satisfy the foreign key on prebuilt_habits.user_id -> profiles(id)
+    try {
+      const { data: existingProfile, error: profileSelectError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (profileSelectError) {
+        console.warn('Could not verify profile existence before seeding defaults:', profileSelectError);
+      }
+
+      if (!existingProfile) {
+        const profileInsert = {
+          id: user.id,
+          // These fields may have defaults; include the safest minimums if present
+          // email is commonly present on profiles; ignore if schema differs
+          email: (user as any).email ?? undefined,
+        } as any;
+
+        const { error: profileUpsertError } = await supabase
+          .from('profiles')
+          .upsert(profileInsert, { onConflict: 'id', ignoreDuplicates: true });
+
+        if (profileUpsertError) {
+          console.warn('Failed to upsert profile before seeding defaults (may already exist or schema differs):', profileUpsertError);
+        }
+      }
+    } catch (e) {
+      console.warn('Non-fatal error ensuring profile exists before seeding defaults:', e);
+    }
+
+    // First check if default habits already exist for this user
+    const { data: existingDefaults, error: checkError } = await supabase
+      .from('prebuilt_habits')
+      .select('name')
+      .eq('user_id', user.id)
+      .eq('is_default', true);
+
+    if (checkError) {
+      console.error('Error checking existing defaults:', checkError);
+      return;
+    }
+
+    // If defaults already exist, don't seed again
+    if (existingDefaults && existingDefaults.length > 0) {
+      console.log('Default prebuilt habits already exist, skipping seeding');
+      return;
+    }
+
+    const defaultHabits = [
+      {
+        name: 'Drink Water',
+        description: 'Stay hydrated throughout the day',
+        color: '#3b82f6',
+        icon: '💧',
+        frequency: 'daily' as const,
+        target_days: 7,
+        category: 'Health',
+        is_default: true,
+      },
+      {
+        name: 'Exercise',
+        description: '30 minutes of physical activity',
+        color: '#ef4444',
+        icon: '💪',
+        frequency: 'daily' as const,
+        target_days: 5,
+        category: 'Fitness',
+        is_default: true,
+      },
+      {
+        name: 'Read for 10 mins',
+        description: 'Expand your knowledge daily',
+        color: '#10b981',
+        icon: '📚',
+        frequency: 'daily' as const,
+        target_days: 7,
+        category: 'Learning',
+        is_default: true,
+      },
+      {
+        name: 'Meditation',
+        description: '10 minutes of mindfulness',
+        color: '#8b5cf6',
+        icon: '🧘',
+        frequency: 'daily' as const,
+        target_days: 6,
+        category: 'Wellness',
+        is_default: true,
+      },
+      {
+        name: 'Wake up Early',
+        description: 'Rise before 7 AM',
+        color: '#f59e0b',
+        icon: '🌅',
+        frequency: 'daily' as const,
+        target_days: 7,
+        category: 'Productivity',
+        is_default: true,
+      },
+      {
+        name: 'No Phone Before Bed',
+        description: 'Digital detox before sleep',
+        color: '#ec4899',
+        icon: '📱',
+        frequency: 'daily' as const,
+        target_days: 7,
+        category: 'Wellness',
+        is_default: true,
+      },
+      {
+        name: 'Write in Journal',
+        description: 'Reflect on your day',
+        color: '#14b8a6',
+        icon: '✍️',
+        frequency: 'daily' as const,
+        target_days: 5,
+        category: 'Personal',
+        is_default: true,
+      },
+      {
+        name: 'Healthy Breakfast',
+        description: 'Start day with nutritious food',
+        color: '#f97316',
+        icon: '🥑',
+        frequency: 'daily' as const,
+        target_days: 6,
+        category: 'Nutrition',
+        is_default: true,
+      }
+    ];
+
+    try {
+      const { data, error } = await supabase
+        .from('prebuilt_habits')
+        .insert(defaultHabits.map(h => ({ ...h, user_id: user.id })))
+        .select();
+
+      if (error) throw error;
+
+      console.log('Successfully seeded default prebuilt habits');
+      setPrebuiltHabits(prev => [...(data || []), ...prev]);
+    } catch (error) {
+      console.error('Error seeding default prebuilt habits:', error);
+      throw error;
+    }
+  }
+
   const value: HabitsContextType = {
     habits,
+    prebuiltHabits,
     completions,
     loading,
     createHabit,
@@ -368,6 +610,11 @@ export function HabitsProvider({ children }: HabitsProviderProps) {
     isHabitSnoozed,
     refreshHabits: loadHabits,
     refreshCompletions: loadCompletions,
+    fetchPrebuiltHabits,
+    createPrebuiltHabit,
+    updatePrebuiltHabit,
+    deletePrebuiltHabit,
+    seedDefaultPrebuiltHabits,
   };
 
   return (

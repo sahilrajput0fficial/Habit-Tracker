@@ -12,9 +12,21 @@ const ICONS = ['🎯', '📚', '💪', '🧘', '🏃', '💻', '🎨', '🎵', '
 type Props = {
   habitId: string | null;
   onClose: () => void;
+  initial?: Partial<{
+    name: string;
+    description: string;
+    color: string;
+    icon: string;
+    frequency: 'daily' | 'weekly';
+    target_days: number;
+    reminders_enabled: boolean;
+    reminder_time: string | null;
+    browser_notifications: boolean;
+    email_notifications: boolean;
+  }>;
 };
 
-export function HabitForm({ habitId, onClose }: Props) {
+export function HabitForm({ habitId, onClose, initial }: Props) {
   const { habits, createHabit, updateHabit } = useHabits();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -45,9 +57,20 @@ export function HabitForm({ habitId, onClose }: Props) {
         setBrowserNotifications(habit.browser_notifications ?? true);
         setEmailNotifications(habit.email_notifications ?? false);
       }
+    } else if (initial) {
+      if (initial.name) setName(initial.name);
+      if (initial.description !== undefined) setDescription(initial.description);
+      if (initial.color) setColor(initial.color);
+      if (initial.icon) setIcon(initial.icon);
+      if (initial.frequency) setFrequency(initial.frequency);
+      if (typeof initial.target_days === 'number') setTargetDays(initial.target_days);
+      if (typeof initial.reminders_enabled === 'boolean') setRemindersEnabled(initial.reminders_enabled);
+      if (typeof initial.browser_notifications === 'boolean') setBrowserNotifications(initial.browser_notifications);
+      if (typeof initial.email_notifications === 'boolean') setEmailNotifications(initial.email_notifications);
+      if (initial.reminder_time) setReminderTime(initial.reminder_time);
     }
     setError(''); // Clear any previous errors
-  }, [habitId, habits]);
+  }, [habitId, habits, initial]);
 
   async function handleSubmit(e: React.FormEvent) {
   e.preventDefault();
@@ -69,7 +92,7 @@ export function HabitForm({ habitId, onClose }: Props) {
         email_notifications: emailNotifications,
       });
     } else {
-      await createHabit({
+      const payload: Parameters<typeof createHabit>[0] = {
         name,
         description,
         color,
@@ -81,7 +104,10 @@ export function HabitForm({ habitId, onClose }: Props) {
         reminders_enabled: remindersEnabled,
         browser_notifications: browserNotifications,
         email_notifications: emailNotifications,
-      });
+        snoozed_until: null,
+        snooze_duration: null,
+      };
+      await createHabit(payload);
     }
     onClose();
   } catch (error: unknown) {
