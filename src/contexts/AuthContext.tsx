@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { User } from "@supabase/supabase-js";
 import { supabase, Profile } from "../lib/supabase";
+import { getBrowserTimeZone } from "../utils/timeUtils";
 
 type AuthContextType = {
   user: User | null;
@@ -10,6 +11,7 @@ type AuthContextType = {
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   updateProfile: (updates: Partial<Profile>) => Promise<void>;
+  updateTimezone: (timezone: string, manual: boolean) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -64,6 +66,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           localStorage.setItem('theme', data.theme);
           // Dispatch custom event to notify ThemeContext of theme change
           window.dispatchEvent(new CustomEvent('themeChange', { detail: data.theme }));
+        }
+      }
+
+      // Auto-detect timezone if not set or not manually overridden
+      const browserTz = getBrowserTimeZone();
+      if (data) {
+        const shouldAutoSet = !data.timezone || data.timezone_manual === false;
+        if (shouldAutoSet && data.timezone !== browserTz) {
+          try {
+            await supabase.from('profiles').update({ timezone: browserTz, timezone_manual: false }).eq('id', userId);
+            setProfile({ ...data, timezone: browserTz, timezone_manual: false });
+          } catch (e) {
+            console.warn('Failed to auto-set timezone:', e);
+          }
+        }
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('timezone', data.timezone || browserTz);
+          localStorage.setItem('timezone_manual', String(!!data.timezone_manual));
         }
       }
     } catch (error) {
@@ -125,9 +145,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  async function updateTimezone(timezone: string, manual: boolean) {
+    if (!user) return;
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ timezone, timezone_manual: manual })
+        .eq('id', user.id);
+      if (error) throw error;
+      if (profile) setProfile({ ...profile, timezone, timezone_manual: manual });
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('timezone', timezone);
+        localStorage.setItem('timezone_manual', String(manual));
+      }
+    } catch (e) {
+      console.error('Failed to update timezone:', e);
+      throw e;
+    }
+  }
+
   return (
     <AuthContext.Provider
-      value={{ user, profile, loading, signUp, signIn, signOut, updateProfile }}
+      value={{ user, profile, loading, signUp, signIn, signOut, updateProfile, updateTimezone }}
     >
       {children}
     </AuthContext.Provider>

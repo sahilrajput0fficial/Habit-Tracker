@@ -14,6 +14,8 @@ export type Profile = {
   full_name: string;
   avatar_url?: string;
   theme: 'light' | 'dark';
+  timezone?: string; // IANA tz like "America/Los_Angeles"
+  timezone_manual?: boolean; // true if user manually overrides browser tz
   created_at: string;
   updated_at: string;
 };
@@ -29,6 +31,13 @@ export type Habit = {
   active_days: number[]; // Added
   // target_days: number; // This is no longer used
   is_active: boolean;
+  reminder_time?: string | null; // HH:MM local time string
+  reminders_enabled?: boolean;
+  browser_notifications?: boolean;
+  email_notifications?: boolean;
+  snoozed_until?: string | null;
+  snooze_duration?: number | null;
+  next_reminder_at_utc?: string | null; // ISO string for next reminder run in UTC
   created_at: string;
   updated_at: string;
 };

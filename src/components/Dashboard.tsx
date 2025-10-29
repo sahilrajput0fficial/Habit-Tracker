@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useHabits } from '../hooks/useHabits';
-import { Plus, CheckCircle2, Circle, Flame, Calendar, TrendingUp, Menu, Moon, Sun, LogOut, Bell, Edit, Trash2, BookOpen } from 'lucide-react';
+import { Plus, CheckCircle2, Circle, Flame, Calendar, TrendingUp, Menu, Moon, Sun, LogOut, Bell, Edit, Trash2, BookOpen, Globe2 } from 'lucide-react';
 import { HabitForm } from './HabitForm';
 import { CalendarView } from './CalendarView';
 import { ProgressView } from './ProgressView';
@@ -9,6 +9,7 @@ import { HistoryView } from './HistoryView';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { Footer } from './Footer';
+import { TimezoneSettings } from './TimezoneSettings';
 
 type View = 'dashboard' | 'calendar' | 'progress' | 'history';
 
@@ -20,6 +21,7 @@ export function Dashboard() {
   const [showHabitForm, setShowHabitForm] = useState(false);
   const [editingHabit, setEditingHabit] = useState<string | null>(null);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showTzSettings, setShowTzSettings] = useState(false);
   const [deletingHabit, setDeletingHabit] = useState<string | null>(null);
 
   const today = new Date().toISOString().split('T')[0];
@@ -101,6 +103,13 @@ export function Dashboard() {
                     onClose={() => setShowNotifications(false)}
                   />
                 </div>
+                <button
+                  onClick={() => setShowTzSettings(true)}
+                  className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                  title="Timezone settings"
+                >
+                  <Globe2 className="w-5 h-5" />
+                </button>
                 <button
                   onClick={toggleTheme}
                   className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
@@ -327,6 +336,7 @@ export function Dashboard() {
         </main>
 
         <Footer />  
+  <TimezoneSettings isOpen={showTzSettings} onClose={() => setShowTzSettings(false)} />
 
         {showHabitForm && (
           <HabitForm
