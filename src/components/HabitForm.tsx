@@ -75,7 +75,6 @@ export function HabitForm({ habitId, onClose, initial }: Props) {
         setBrowserNotifications(habit.browser_notifications ?? true);
         setEmailNotifications(habit.email_notifications ?? false);
       }
-<<<<<<< HEAD
     } else if (initial) {
       if (initial.name) setName(initial.name);
       if (initial.description !== undefined) setDescription(initial.description);
@@ -87,12 +86,10 @@ export function HabitForm({ habitId, onClose, initial }: Props) {
       if (typeof initial.browser_notifications === 'boolean') setBrowserNotifications(initial.browser_notifications);
       if (typeof initial.email_notifications === 'boolean') setEmailNotifications(initial.email_notifications);
       if (initial.reminder_time) setReminderTime(initial.reminder_time);
-=======
     } else {
       // Set defaults for new habit
       setFrequency('daily');
       setActiveDays(ALL_DAYS);
->>>>>>> 21e0e57bf130956d5221e7590dbb6cf218e39550
     }
     setError(''); // Clear any previous errors
   }, [habitId, habits, initial]);
@@ -136,8 +133,6 @@ export function HabitForm({ habitId, onClose, initial }: Props) {
         browser_notifications: browserNotifications,
         email_notifications: emailNotifications,
       });
-    } else {
-<<<<<<< HEAD
       const payload: Parameters<typeof createHabit>[0] = {
         name,
         description,
@@ -154,7 +149,6 @@ export function HabitForm({ habitId, onClose, initial }: Props) {
         snooze_duration: null,
       };
       await createHabit(payload);
-=======
       await createHabit({
   name,
   description,
@@ -172,7 +166,6 @@ export function HabitForm({ habitId, onClose, initial }: Props) {
   snooze_duration: 0,  // default
 });
 
->>>>>>> 21e0e57bf130956d5221e7590dbb6cf218e39550
     }
     onClose();
   } catch (error: unknown) {
