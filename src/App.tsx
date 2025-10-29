@@ -5,9 +5,9 @@ import { Auth } from './components/Auth';
 import { Dashboard } from './components/Dashboard';
 
 function AppContent() {
-  const { user, loading } = useAuth();
+  const { user, loading, profile } = useAuth();
 
-  console.log('AppContent render:', { user: !!user, loading });
+  console.log('AppContent render:', { user: !!user, loading, profile: !!profile });
 
   if (loading) {
     return (

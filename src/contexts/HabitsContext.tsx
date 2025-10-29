@@ -11,9 +11,8 @@ type Habit = {
   description: string;
   color: string;
   icon: string;
-  frequency: 'daily' | 'custom'; // Updated
-  active_days: number[]; // Added
-  // target_days: number; // No longer used, but keep for now to avoid breaking DB type
+  frequency: 'daily' | 'custom';
+  active_days: number[];
   target_days: number;
   is_active: boolean;
   reminder_time: string | null;
@@ -22,6 +21,21 @@ type Habit = {
   email_notifications: boolean;
   snoozed_until: string | null;
   snooze_duration: number | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type PrebuiltHabit = {
+  id: string;
+  user_id: string;
+  name: string;
+  description: string;
+  color: string;
+  icon: string;
+  frequency: 'daily' | 'weekly' | 'custom';
+  target_days: number;
+  category: string;
+  is_default: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -47,10 +61,11 @@ type HabitHistory = {
 
 type HabitsContextType = {
   habits: Habit[];
+  prebuiltHabits: PrebuiltHabit[];
   completions: HabitCompletion[];
   history: HabitHistory[];
   loading: boolean;
-  createHabit: (habit: Omit<Habit, 'id' | 'user_id' | 'created_at' | 'updated_at' | 'target_days'> & { target_days?: number }) => Promise<Habit>; // Make target_days optional
+  createHabit: (habit: Omit<Habit, 'id' | 'user_id' | 'created_at' | 'updated_at' | 'target_days'> & { target_days?: number }) => Promise<Habit>;
   updateHabit: (id: string, updates: Partial<Habit>) => Promise<void>;
   deleteHabit: (id: string) => Promise<void>;
   toggleCompletion: (habitId: string, date: string) => Promise<void>;
@@ -62,15 +77,18 @@ type HabitsContextType = {
   refreshHabits: () => Promise<void>;
   refreshCompletions: () => Promise<void>;
   loadHistory: () => Promise<void>;
+  fetchPrebuiltHabits: () => Promise<PrebuiltHabit[]>;
+  createPrebuiltHabit: (habit: Omit<PrebuiltHabit, 'id' | 'user_id' | 'created_at' | 'updated_at'>) => Promise<PrebuiltHabit>;
+  updatePrebuiltHabit: (id: string, updates: Partial<PrebuiltHabit>) => Promise<void>;
+  deletePrebuiltHabit: (id: string) => Promise<void>;
+  seedDefaultPrebuiltHabits: () => Promise<void>;
 };
 
 const HabitsContext = createContext<HabitsContextType | undefined>(undefined);
 
 export function useHabits() {
   const context = useContext(HabitsContext);
-  if (context === undefined) {
-    throw new Error('useHabits must be used within a HabitsProvider');
-  }
+  if (!context) throw new Error('useHabits must be used within a HabitsProvider');
   return context;
 }
 
@@ -81,24 +99,19 @@ interface HabitsProviderProps {
 export function HabitsProvider({ children }: HabitsProviderProps) {
   const { user, profile } = useAuth();
   const [habits, setHabits] = useState<Habit[]>([]);
+  const [prebuiltHabits, setPrebuiltHabits] = useState<PrebuiltHabit[]>([]);
   const [completions, setCompletions] = useState<HabitCompletion[]>([]);
   const [history, setHistory] = useState<HabitHistory[]>([]);
   const [loading, setLoading] = useState(true);
 
   const loadHabits = useCallback(async () => {
     try {
-      console.log('Loading habits for user:', user?.id);
       const { data, error } = await supabase
         .from('habits')
         .select('*')
         .eq('is_active', true)
         .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('Error loading habits:', error);
-        throw error;
-      }
-      console.log('Loaded habits:', data);
+      if (error) throw error;
       setHabits(data || []);
     } catch (error) {
       console.error('Error loading habits:', error);
@@ -111,16 +124,11 @@ export function HabitsProvider({ children }: HabitsProviderProps) {
     try {
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
       const { data, error } = await supabase
         .from('habit_completions')
         .select('*')
         .gte('completed_date', thirtyDaysAgo.toISOString().split('T')[0]);
-
-      if (error) {
-        console.error('Error loading completions:', error);
-        throw error;
-      }
+      if (error) throw error;
       setCompletions(data || []);
     } catch (error) {
       console.error('Error loading completions:', error);
@@ -129,17 +137,12 @@ export function HabitsProvider({ children }: HabitsProviderProps) {
 
   const loadHistory = useCallback(async () => {
     if (!user) return;
-    
     try {
       const { data, error } = await supabase
         .from('habit_history')
         .select('*')
         .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('Error loading history:', error);
-        throw error;
-      }
+      if (error) throw error;
       setHistory(data || []);
     } catch (error) {
       console.error('Error loading history:', error);
@@ -147,15 +150,9 @@ export function HabitsProvider({ children }: HabitsProviderProps) {
   }, [user]);
 
   const setupNotifications = useCallback(() => {
-    if (!notificationManager.isSupported()) {
-      console.warn('Notifications not supported in this browser');
-      return;
-    }
-
-    // Request permission if not already granted
+    if (!notificationManager.isSupported()) return;
     notificationManager.requestPermission().then(permission => {
       if (permission.granted) {
-        // Cancel all existing notifications first
         notificationManager.cancelAllScheduledNotifications();
 
         const effectiveTz = (profile?.timezone && (profile?.timezone_manual || profile?.timezone)) ? profile.timezone : getBrowserTimeZone();
@@ -177,8 +174,6 @@ export function HabitsProvider({ children }: HabitsProviderProps) {
             }
           }
         });
-      } else {
-        console.warn('Notification permission not granted');
       }
     });
   }, [habits, user?.email, profile?.timezone, profile?.timezone_manual]);
@@ -188,20 +183,19 @@ export function HabitsProvider({ children }: HabitsProviderProps) {
       loadHabits();
       loadCompletions();
       loadHistory();
+      fetchPrebuiltHabits();
     } else {
       setHabits([]);
       setCompletions([]);
       setHistory([]);
+      setPrebuiltHabits([]);
       notificationManager.cancelAllScheduledNotifications();
       setLoading(false);
     }
   }, [user, loadHabits, loadCompletions, loadHistory]);
 
-  // Set up notifications when habits change
   useEffect(() => {
-    if (user && habits.length > 0) {
-      setupNotifications();
-    }
+    if (user && habits.length > 0) setupNotifications();
   }, [habits, user, setupNotifications]);
 
   // Re-schedule on timezone/DST change
@@ -231,12 +225,7 @@ export function HabitsProvider({ children }: HabitsProviderProps) {
 
 
   async function createHabit(habit: Omit<Habit, 'id' | 'user_id' | 'created_at' | 'updated_at' | 'target_days'> & { target_days?: number }) {
-    if (!user) {
-      console.error('No user found! Cannot create habit.');
-      throw new Error('You must be logged in to create a habit.');
-    }
-
-    // Check for duplicate habit name (case-insensitive)
+    if (!user) throw new Error('You must be logged in to create a habit.');
     const trimmedName = habit.name.trim().toLowerCase();
     const duplicate = habits.find(
       h => h.name.trim().toLowerCase() === trimmedName
@@ -282,16 +271,10 @@ export function HabitsProvider({ children }: HabitsProviderProps) {
   }
 
   async function updateHabit(id: string, updates: Partial<Habit>) {
-    // Check for duplicate name when updating (exclude current habit)
     if (updates.name) {
-      const trimmedName = updates.name.trim().toLowerCase();
-      const duplicate = habits.find(
-        h => h.id !== id && h.name.trim().toLowerCase() === trimmedName
-      );
-
-      if (duplicate) {
-        throw new Error('A habit with this name already exists. Please choose a different name.');
-      }
+      const name = updates.name.trim().toLowerCase();
+      if (habits.find(h => h.id !== id && h.name.trim().toLowerCase() === name))
+        throw new Error('A habit with this name already exists.');
     }
     // Ensure 'daily' habits save with all days
     if (updates.frequency === 'daily') {
@@ -316,139 +299,65 @@ export function HabitsProvider({ children }: HabitsProviderProps) {
   }
 
   async function deleteHabit(id: string) {
-    const { error } = await supabase
-      .from('habits')
-      .update({ is_active: false })
-      .eq('id', id);
-
+    const { error } = await supabase.from('habits').update({ is_active: false }).eq('id', id);
     if (error) throw error;
     setHabits(habits.filter(h => h.id !== id));
-
-    // Cancel any scheduled notifications for this habit
     cancelHabitReminder(id);
   }
 
   async function toggleCompletion(habitId: string, date: string) {
     if (!user) return;
-
-    const existing = completions.find(
-      c => c.habit_id === habitId && c.completed_date === date
-    );
-
+    const existing = completions.find(c => c.habit_id === habitId && c.completed_date === date);
     if (existing) {
-      const { error } = await supabase
-        .from('habit_completions')
-        .delete()
-        .eq('id', existing.id);
-
+      const { error } = await supabase.from('habit_completions').delete().eq('id', existing.id);
       if (error) throw error;
       setCompletions(completions.filter(c => c.id !== existing.id));
     } else {
       const { data, error } = await supabase
         .from('habit_completions')
-        .insert({
-          habit_id: habitId,
-          user_id: user.id,
-          completed_date: date,
-        })
+        .insert({ habit_id: habitId, user_id: user.id, completed_date: date })
         .select()
         .single();
-
       if (error) throw error;
       setCompletions([...completions, data]);
     }
   }
 
   function isCompleted(habitId: string, date: string): boolean {
-    return completions.some(
-      c => c.habit_id === habitId && c.completed_date === date
-    );
+    return completions.some(c => c.habit_id === habitId && c.completed_date === date);
   }
 
   function getStreak(habitId: string): number {
     const habit = habits.find(h => h.id === habitId);
     if (!habit) return 0;
-
-    // Use active_days, default to all days for 'daily'
-    const activeDays = habit.frequency === 'daily' 
-      ? [0, 1, 2, 3, 4, 5, 6] 
-      : (habit.active_days || []);
-    
-    if (activeDays.length === 0) return 0; // No active days, no streak
-
+    const activeDays = habit.frequency === 'daily' ? [0,1,2,3,4,5,6] : (habit.active_days || []);
     let streak = 0;
-    let currentDate = new Date();
-
-    // 1. Check if today is active and uncompleted. If so, streak is 0.
-    const todayDay = currentDate.getDay();
-    const todayStr = currentDate.toISOString().split('T')[0];
-    if (activeDays.includes(todayDay) && !isCompleted(habitId, todayStr)) {
-      return 0; // Today is an active day and it's not done, so streak is 0.
-    }
-    
-    // 2. Loop backwards from today.
-    for (let i = 0; i < 365; i++) { // Limit to 1 year
-      const dayOfWeek = currentDate.getDay();
-      
-      if (activeDays.includes(dayOfWeek)) {
-        // This is an active day
-        const dateStr = currentDate.toISOString().split('T')[0];
-        if (isCompleted(habitId, dateStr)) {
-          streak++;
-        } else {
-          // Found a past, active, uncompleted day. Streak ends.
-          break;
-        }
+    let current = new Date();
+    for (let i = 0; i < 365; i++) {
+      const dow = current.getDay();
+      if (activeDays.includes(dow)) {
+        const dateStr = current.toISOString().split('T')[0];
+        if (isCompleted(habitId, dateStr)) streak++;
+        else break;
       }
-      // If not an active day, just skip it and check the day before.
-      currentDate.setDate(currentDate.getDate() - 1);
+      current.setDate(current.getDate() - 1);
     }
-
     return streak;
   }
 
   async function snoozeHabit(habitId: string, durationMinutes: number) {
-    const snoozedUntil = new Date();
-    snoozedUntil.setMinutes(snoozedUntil.getMinutes() + durationMinutes);
-
-    const { error } = await supabase
-      .from('habits')
-      .update({
-        snoozed_until: snoozedUntil.toISOString(),
-        snooze_duration: durationMinutes
-      })
-      .eq('id', habitId);
-
+    const until = new Date();
+    until.setMinutes(until.getMinutes() + durationMinutes);
+    const { error } = await supabase.from('habits').update({ snoozed_until: until.toISOString(), snooze_duration: durationMinutes }).eq('id', habitId);
     if (error) throw error;
-
-    setHabits(habits.map(h =>
-      h.id === habitId
-        ? { ...h, snoozed_until: snoozedUntil.toISOString(), snooze_duration: durationMinutes }
-        : h
-    ));
-
-    // Cancel current notification for this habit
+    setHabits(habits.map(h => h.id === habitId ? { ...h, snoozed_until: until.toISOString(), snooze_duration: durationMinutes } : h));
     cancelHabitReminder(habitId);
   }
 
   async function unsnoozeHabit(habitId: string) {
-    const { error } = await supabase
-      .from('habits')
-      .update({
-        snoozed_until: null,
-        snooze_duration: null
-      })
-      .eq('id', habitId);
-
+    const { error } = await supabase.from('habits').update({ snoozed_until: null, snooze_duration: null }).eq('id', habitId);
     if (error) throw error;
-
-    setHabits(habits.map(h =>
-      h.id === habitId
-        ? { ...h, snoozed_until: null, snooze_duration: null }
-        : h
-    ));
-
-    // Reschedule notification for this habit
+    setHabits(habits.map(h => h.id === habitId ? { ...h, snoozed_until: null, snooze_duration: null } : h));
     const habit = habits.find(h => h.id === habitId);
     if (habit && habit.reminders_enabled && habit.reminder_time && habit.browser_notifications) {
       const effectiveTz = (profile?.timezone && (profile?.timezone_manual || profile?.timezone)) ? profile.timezone! : getBrowserTimeZone();
@@ -456,16 +365,68 @@ export function HabitsProvider({ children }: HabitsProviderProps) {
     }
   }
 
-  function isHabitSnoozed(habitId: string): boolean {
+  function isHabitSnoozed(habitId: string) {
     const habit = habits.find(h => h.id === habitId);
     if (!habit || !habit.snoozed_until) return false;
+    return new Date(habit.snoozed_until) > new Date();
+  }
 
-    const snoozedUntil = new Date(habit.snoozed_until);
-    return snoozedUntil > new Date();
+  // ——— Prebuilt Habit Functions ——— //
+  async function fetchPrebuiltHabits() {
+    if (!user) return [];
+    const { data, error } = await supabase
+      .from('prebuilt_habits')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    setPrebuiltHabits(data || []);
+    return data || [];
+  }
+
+  async function createPrebuiltHabit(habit: Omit<PrebuiltHabit, 'id' | 'user_id' | 'created_at' | 'updated_at'>) {
+    if (!user) throw new Error('You must be logged in to create a prebuilt habit.');
+    const { data, error } = await supabase.from('prebuilt_habits').insert({ ...habit, user_id: user.id }).select().single();
+    if (error) throw error;
+    setPrebuiltHabits([data, ...prebuiltHabits]);
+    return data;
+  }
+
+  async function updatePrebuiltHabit(id: string, updates: Partial<PrebuiltHabit>) {
+    const { error } = await supabase.from('prebuilt_habits').update(updates).eq('id', id);
+    if (error) throw error;
+    setPrebuiltHabits(prebuiltHabits.map(h => h.id === id ? { ...h, ...updates } : h));
+  }
+
+  async function deletePrebuiltHabit(id: string) {
+    const { error } = await supabase.from('prebuilt_habits').delete().eq('id', id);
+    if (error) throw error;
+    setPrebuiltHabits(prebuiltHabits.filter(h => h.id !== id));
+  }
+
+  async function seedDefaultPrebuiltHabits() {
+    if (!user) return;
+    const { data: existing, error: checkError } = await supabase
+      .from('prebuilt_habits')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('is_default', true);
+    if (checkError) throw checkError;
+    if (existing && existing.length > 0) return;
+
+    const defaults = [
+      { name: 'Drink Water', description: 'Stay hydrated', color: '#3b82f6', icon: '💧', frequency: 'daily' as const, target_days: 7, category: 'Health', is_default: true },
+      { name: 'Exercise', description: '30 minutes of physical activity', color: '#ef4444', icon: '💪', frequency: 'daily' as const, target_days: 5, category: 'Fitness', is_default: true },
+    ];
+
+    const { data, error } = await supabase.from('prebuilt_habits').insert(defaults.map(h => ({ ...h, user_id: user.id }))).select();
+    if (error) throw error;
+    setPrebuiltHabits([...data, ...prebuiltHabits]);
   }
 
   const value: HabitsContextType = {
     habits,
+    prebuiltHabits,
     completions,
     history,
     loading,
@@ -481,11 +442,12 @@ export function HabitsProvider({ children }: HabitsProviderProps) {
     refreshHabits: loadHabits,
     refreshCompletions: loadCompletions,
     loadHistory,
+    fetchPrebuiltHabits,
+    createPrebuiltHabit,
+    updatePrebuiltHabit,
+    deletePrebuiltHabit,
+    seedDefaultPrebuiltHabits,
   };
 
-  return (
-    <HabitsContext.Provider value={value}>
-      {children}
-    </HabitsContext.Provider>
-  );
+  return <HabitsContext.Provider value={value}>{children}</HabitsContext.Provider>;
 }

@@ -1,13 +1,30 @@
 import { useState, useEffect } from 'react';
-import { useHabits } from '../hooks/useHabits';
-import { Plus, CheckCircle2, Circle, Flame, Calendar, TrendingUp, Menu, Moon, Sun, LogOut, Bell, Edit, Trash2, BookOpen, Globe2 } from 'lucide-react';
+import {
+  Plus,
+  CheckCircle2,
+  Circle,
+  Flame,
+  Calendar,
+  TrendingUp,
+  Menu,
+  Moon,
+  Sun,
+  LogOut,
+  Bell,
+  Edit,
+  Trash2,
+  BookOpen,
+  Globe2,
+} from 'lucide-react';
 import { HabitForm } from './HabitForm';
 import { CalendarView } from './CalendarView';
 import { ProgressView } from './ProgressView';
 import { NotificationsPanel } from './NotificationsPanel';
 import { HistoryView } from './HistoryView';
+import { SuggestedHabits, Onboarding } from './Onboarding';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { PrebuiltHabitsManager } from './PrebuiltHabitsManager';
 import { Footer } from './Footer';
 import { TimezoneSettings } from './TimezoneSettings';
 
@@ -17,21 +34,21 @@ export function Dashboard() {
   const { habits, loading, toggleCompletion, isCompleted, getStreak, deleteHabit } = useHabits();
   const { signOut } = useAuth();
   const { theme, toggleTheme } = useTheme();
+
   const [currentView, setCurrentView] = useState<View>('dashboard');
   const [showHabitForm, setShowHabitForm] = useState(false);
   const [editingHabit, setEditingHabit] = useState<string | null>(null);
+  const [deletingHabit, setDeletingHabit] = useState<string | null>(null);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showTzSettings, setShowTzSettings] = useState(false);
-  const [deletingHabit, setDeletingHabit] = useState<string | null>(null);
+  const [showPrebuiltManager, setShowPrebuiltManager] = useState(false);
 
   const today = new Date().toISOString().split('T')[0];
-  const todayDay = new Date().getDay(); // 0 = Sunday, 1 = Monday, etc.
+  const todayDay = new Date().getDay();
   const isDarkMode = theme === 'dark';
 
-  // Force theme application on mount
   useEffect(() => {
-    const root = document.documentElement;
-    root.classList.toggle('dark', isDarkMode);
+    document.documentElement.classList.toggle('dark', isDarkMode);
   }, [isDarkMode]);
 
   const handleEditHabit = (habitId: string) => {
@@ -58,23 +75,21 @@ export function Dashboard() {
   }
 
   // Filter habits to only those active today
-  const activeHabitsToday = habits.filter(habit => {
-    // Handle old 'weekly' data as 'custom'
+  const activeHabitsToday = habits.filter((habit) => {
     const frequency = (habit.frequency as any) === 'weekly' ? 'custom' : habit.frequency;
-    const activeDays = frequency === 'daily' 
-      ? [0, 1, 2, 3, 4, 5, 6] 
-      : (habit.active_days || []);
+    const activeDays =
+      frequency === 'daily' ? [0, 1, 2, 3, 4, 5, 6] : habit.active_days || [];
     return activeDays.includes(todayDay);
   });
 
-  const completedToday = activeHabitsToday.filter(h => isCompleted(h.id, today)).length;
-  const totalActive = activeHabitsToday.length; // Use filtered list
-
-  const reminderCount = habits.filter(h => h.reminders_enabled && h.reminder_time).length;
+  const completedToday = activeHabitsToday.filter((h) => isCompleted(h.id, today)).length;
+  const totalActive = activeHabitsToday.length;
+  const reminderCount = habits.filter((h) => h.reminders_enabled && h.reminder_time).length;
 
   return (
     <div className={isDarkMode ? 'dark' : ''}>
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors flex flex-col">
+        {/* Navbar */}
         <nav className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between items-center h-16">
@@ -82,10 +97,13 @@ export function Dashboard() {
                 <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
                   <span className="text-white font-bold">HT</span>
                 </div>
-                <h1 className="text-xl font-bold text-gray-900 dark:text-white">Habit Tracker</h1>
+                <h1 className="text-xl font-bold text-gray-900 dark:text-white">
+                  Habit Tracker
+                </h1>
               </div>
 
               <div className="flex items-center gap-2">
+                {/* Notifications */}
                 <div className="relative">
                   <button
                     onClick={() => setShowNotifications(!showNotifications)}
@@ -103,6 +121,8 @@ export function Dashboard() {
                     onClose={() => setShowNotifications(false)}
                   />
                 </div>
+
+                {/* Theme Toggle */}
                 <button
                   onClick={() => setShowTzSettings(true)}
                   className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
@@ -116,6 +136,8 @@ export function Dashboard() {
                 >
                   {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
                 </button>
+
+                {/* Logout */}
                 <button
                   onClick={() => signOut()}
                   className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
@@ -128,108 +150,81 @@ export function Dashboard() {
           </div>
         </nav>
 
+        {/* Tabs Navigation */}
         <main className="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full mb-24">
           <div className="flex gap-2 mb-8 border-b border-gray-200 dark:border-gray-700">
-            <button
-              onClick={() => setCurrentView('dashboard')}
-              className={`px-4 py-2 font-medium transition-colors ${
-                currentView === 'dashboard'
-                  ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400'
-                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <Menu className="w-4 h-4" />
-                <span>Dashboard</span>
-              </div>
-            </button>
-            <button
-              onClick={() => setCurrentView('calendar')}
-              className={`px-4 py-2 font-medium transition-colors ${
-                currentView === 'calendar'
-                  ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400'
-                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <Calendar className="w-4 h-4" />
-                <span>Calendar</span>
-              </div>
-            </button>
-            <button
-              onClick={() => setCurrentView('progress')}
-              className={`px-4 py-2 font-medium transition-colors ${
-                currentView === 'progress'
-                  ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400'
-                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <TrendingUp className="w-4 h-4" />
-                <span>Progress</span>
-              </div>
-            </button>
-            <button
-              onClick={() => setCurrentView('history')}
-              className={`px-4 py-2 font-medium transition-colors ${
-                currentView === 'history'
-                  ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400'
-                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <BookOpen className="w-4 h-4" />
-                <span>History</span>
-              </div>
-            </button>
+            {[
+              { id: 'dashboard', icon: Menu, label: 'Dashboard' },
+              { id: 'calendar', icon: Calendar, label: 'Calendar' },
+              { id: 'progress', icon: TrendingUp, label: 'Progress' },
+              { id: 'history', icon: BookOpen, label: 'History' },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setCurrentView(tab.id as View)}
+                className={`px-4 py-2 font-medium transition-colors ${
+                  currentView === tab.id
+                    ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <tab.icon className="w-4 h-4" />
+                  <span>{tab.label}</span>
+                </div>
+              </button>
+            ))}
           </div>
 
+          {/* Dashboard View */}
           {currentView === 'dashboard' && (
             <>
+              {/* Stats Section */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
-                      <CheckCircle2 className="w-6 h-6 text-green-600 dark:text-green-400" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">Today's Progress</p>
-                      <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                        {completedToday}/{totalActive}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/30 rounded-lg flex items-center justify-center">
-                      <Flame className="w-6 h-6 text-orange-600 dark:text-orange-400" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">Active Habits Today</p>
-                      <p className="text-2xl font-bold text-gray-900 dark:text-white">{totalActive}</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
-                      <Calendar className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">Completion Rate</p>
-                      <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                        {totalActive > 0 ? Math.round((completedToday / totalActive) * 100) : 0}%
-                      </p>
+                {[
+                  {
+                    icon: CheckCircle2,
+                    color: 'green',
+                    title: "Today's Progress",
+                    value: `${completedToday}/${totalActive}`,
+                  },
+                  {
+                    icon: Flame,
+                    color: 'orange',
+                    title: 'Active Habits',
+                    value: totalActive,
+                  },
+                  {
+                    icon: Calendar,
+                    color: 'blue',
+                    title: 'Completion Rate',
+                    value: `${totalActive > 0 ? Math.round((completedToday / totalActive) * 100) : 0}%`,
+                  },
+                ].map(({ icon: Icon, color, title, value }) => (
+                  <div
+                    key={title}
+                    className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div
+                        className={`w-12 h-12 bg-${color}-100 dark:bg-${color}-900/30 rounded-lg flex items-center justify-center`}
+                      >
+                        <Icon className={`w-6 h-6 text-${color}-600 dark:text-${color}-400`} />
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">{title}</p>
+                        <p className="text-2xl font-bold text-gray-900 dark:text-white">{value}</p>
+                      </div>
                     </div>
                   </div>
-                </div>
+                ))}
               </div>
 
+              {/* Habits Section */}
               <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Today's Habits</h2>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                  Today's Habits
+                </h2>
                 <button
                   onClick={() => setShowHabitForm(true)}
                   className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
@@ -239,16 +234,17 @@ export function Dashboard() {
                 </button>
               </div>
 
+              {/* Habit Cards */}
               {activeHabitsToday.length === 0 ? (
                 <div className="bg-white dark:bg-gray-800 rounded-xl p-12 text-center border border-gray-200 dark:border-gray-700">
                   <Circle className="w-16 h-16 text-gray-400 dark:text-gray-600 mx-auto mb-4" />
                   <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-                    {habits.length === 0 ? "No habits yet" : "No habits for today"}
+                    {habits.length === 0 ? 'No habits yet' : 'No habits for today'}
                   </h3>
                   <p className="text-gray-600 dark:text-gray-400 mb-6">
-                    {habits.length === 0 
-                      ? "Start building better habits by creating your first one"
-                      : "Enjoy your day off, or create a new habit!"}
+                    {habits.length === 0
+                      ? 'Start building better habits by creating your first one'
+                      : 'Enjoy your day off, or create a new habit!'}
                   </p>
                   <button
                     onClick={() => setShowHabitForm(true)}
@@ -260,10 +256,9 @@ export function Dashboard() {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {activeHabitsToday.map(habit => {
+                  {activeHabitsToday.map((habit) => {
                     const completed = isCompleted(habit.id, today);
                     const streak = getStreak(habit.id);
-
                     return (
                       <div
                         key={habit.id}
@@ -278,9 +273,13 @@ export function Dashboard() {
                               <span className="text-2xl">{habit.icon}</span>
                             </div>
                             <div className="flex-1 min-w-0">
-                              <h3 className="font-semibold text-gray-900 dark:text-white">{habit.name}</h3>
+                              <h3 className="font-semibold text-gray-900 dark:text-white">
+                                {habit.name}
+                              </h3>
                               {habit.description && (
-                                <p className="text-sm text-gray-600 dark:text-gray-400 truncate">{habit.description}</p>
+                                <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
+                                  {habit.description}
+                                </p>
                               )}
                             </div>
                           </div>
@@ -327,6 +326,8 @@ export function Dashboard() {
                   })}
                 </div>
               )}
+
+              {habits.length > 0 && <SuggestedHabits />}
             </>
           )}
 
@@ -335,9 +336,9 @@ export function Dashboard() {
           {currentView === 'history' && <HistoryView />}
         </main>
 
-        <Footer />  
-  <TimezoneSettings isOpen={showTzSettings} onClose={() => setShowTzSettings(false)} />
-
+        <Footer />
+        <TimezoneSettings isOpen={showTzSettings} onClose={() => setShowTzSettings(false)} />
+        {/* Habit Form */}
         {showHabitForm && (
           <HabitForm
             habitId={editingHabit}
@@ -348,6 +349,16 @@ export function Dashboard() {
           />
         )}
 
+        {/* Prebuilt Habits Manager */}
+        <PrebuiltHabitsManager
+          isOpen={showPrebuiltManager}
+          onClose={() => setShowPrebuiltManager(false)}
+        />
+
+        {/* Onboarding Modal */}
+        <Onboarding />
+
+        {/* Delete Confirmation */}
         {deletingHabit && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-white dark:bg-gray-800 rounded-xl p-6 max-w-md w-full shadow-2xl">
@@ -355,8 +366,8 @@ export function Dashboard() {
                 Delete Habit?
               </h3>
               <p className="text-gray-600 dark:text-gray-400 mb-6">
-                Are you sure you want to delete this habit? This action cannot be undone, 
-                but your history will be preserved.
+                Are you sure you want to delete this habit? This action cannot be undone, but
+                your history will be preserved.
               </p>
               <div className="flex gap-3 justify-end">
                 <button
