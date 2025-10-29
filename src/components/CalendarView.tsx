@@ -62,12 +62,14 @@ export function CalendarView() {
             <button
               onClick={previousMonth}
               className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              aria-label="Previous month"
             >
               <ChevronLeft className="w-5 h-5 text-gray-600 dark:text-gray-400" />
             </button>
             <button
               onClick={nextMonth}
               className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              aria-label="Next month"
             >
               <ChevronRight className="w-5 h-5 text-gray-600 dark:text-gray-400" />
             </button>
