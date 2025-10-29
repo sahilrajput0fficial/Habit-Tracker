@@ -212,8 +212,6 @@ After running migrations, verify:
 - ✅ HTTPS enabled on deployed site
 - ✅ Database backups configured (automatic in Supabase)
 
-### Common Admin Tasks
-
 #### Adding a New Migration
 
 When a contributor adds a new feature requiring database changes:
