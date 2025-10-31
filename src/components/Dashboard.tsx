@@ -28,6 +28,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 
 import { Footer } from './Footer';
+import { ExportModal } from './ExportModal';
 
 type View = 'dashboard' | 'calendar' | 'progress' | 'history';
 
@@ -41,8 +42,7 @@ export function Dashboard() {
   const [editingHabit, setEditingHabit] = useState<string | null>(null);
   const [deletingHabit, setDeletingHabit] = useState<string | null>(null);
   const [showNotifications, setShowNotifications] = useState(false);
-
-  const [isExporting, setIsExporting] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
 
   const today = new Date().toISOString().split('T')[0];
   const todayDay = new Date().getDay();
@@ -67,32 +67,7 @@ export function Dashboard() {
     }
   };
 
-  const handleExportPDF = async () => {
-    if (habits.length === 0) {
-      alert('No habits to export. Please create some habits first.');
-      return;
-    }
 
-    setIsExporting(true);
-    try {
-      const { generateHabitsPDF } = await import('../utils/pdfExport');
-      const habitsWithCompletions = habits.map(habit => ({
-        ...habit,
-        completed_dates: completions
-          .filter(c => c.habit_id === habit.id)
-          .map(c => c.completed_date),
-      }));
-      await generateHabitsPDF({
-        habits: habitsWithCompletions,
-        userName: user?.email?.split('@')[0] || 'User',
-      });
-    } catch (error) {
-      console.error('Error exporting PDF:', error);
-      alert('Failed to export PDF. Please try again.');
-    } finally {
-      setIsExporting(false);
-    }
-  };
 
   if (loading) {
     return (
@@ -250,12 +225,11 @@ export function Dashboard() {
                 </h2>
                 <div className="flex gap-2">
                   <button
-                    onClick={handleExportPDF}
-                    disabled={isExporting}
-                    className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    onClick={() => setShowExportModal(true)}
+                    className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
                   >
                     <Download className="w-5 h-5" />
-                    <span>{isExporting ? 'Exporting...' : 'Export PDF'}</span>
+                    <span>Export Data</span>
                   </button>
                   <button
                     onClick={() => setShowHabitForm(true)}
@@ -381,6 +355,12 @@ export function Dashboard() {
             }}
           />
         )}
+
+        {/* Export Modal */}
+        <ExportModal
+          isOpen={showExportModal}
+          onClose={() => setShowExportModal(false)}
+        />
 
         {/* Onboarding Modal */}
         <Onboarding />
