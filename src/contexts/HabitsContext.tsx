@@ -1,7 +1,8 @@
-import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, ReactNode, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import { scheduleHabitReminder, cancelHabitReminder, scheduleEmailReminder, notificationManager } from '../utils/notifications';
+import { getBrowserTimeZone, getZoneOffsetMinutes, nextUtcInstantFromLocalTime } from '../utils/timeUtils';
 
 type Habit = {
   id: string;
@@ -96,7 +97,7 @@ interface HabitsProviderProps {
 }
 
 export function HabitsProvider({ children }: HabitsProviderProps) {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [habits, setHabits] = useState<Habit[]>([]);
   const [prebuiltHabits, setPrebuiltHabits] = useState<PrebuiltHabit[]>([]);
   const [completions, setCompletions] = useState<HabitCompletion[]>([]);
@@ -153,17 +154,29 @@ export function HabitsProvider({ children }: HabitsProviderProps) {
     notificationManager.requestPermission().then(permission => {
       if (permission.granted) {
         notificationManager.cancelAllScheduledNotifications();
+
+        const effectiveTz = (profile?.timezone && (profile?.timezone_manual || profile?.timezone)) ? profile.timezone : getBrowserTimeZone();
+
+        // Schedule notifications and email reminders for habits with reminders enabled
         habits.forEach(habit => {
-          if (habit.reminders_enabled && habit.reminder_time && !isHabitSnoozed(habit.id)) {
-            if (habit.browser_notifications)
-              scheduleHabitReminder(habit.id, habit.name, habit.reminder_time);
-            if (user?.email && habit.email_notifications)
-              scheduleEmailReminder(habit.id, habit.name, user.email, habit.reminder_time);
+          if (habit.reminders_enabled && habit.reminder_time) {
+            // Skip scheduling if habit is currently snoozed
+            if (isHabitSnoozed(habit.id)) {
+              return;
+            }
+
+            if (habit.browser_notifications) {
+              scheduleHabitReminder(habit.id, habit.name, habit.reminder_time, effectiveTz);
+            }
+            // Also schedule email reminders if user has email and email notifications are enabled
+            if (user?.email && habit.email_notifications) {
+              scheduleEmailReminder(habit.id, habit.name, user.email, habit.reminder_time, effectiveTz);
+            }
           }
         });
       }
     });
-  }, [habits, user?.email]);
+  }, [habits, user?.email, profile?.timezone, profile?.timezone_manual]);
 
   useEffect(() => {
     if (user) {
@@ -185,25 +198,76 @@ export function HabitsProvider({ children }: HabitsProviderProps) {
     if (user && habits.length > 0) setupNotifications();
   }, [habits, user, setupNotifications]);
 
-  // ——— Habit CRUD Functions ——— //
+  // Re-schedule on timezone/DST change
+  const lastOffsetRef = useRef<number | null>(null);
+  useEffect(() => {
+    const tz = (profile?.timezone && (profile?.timezone_manual || profile?.timezone)) ? profile.timezone! : getBrowserTimeZone();
+    const checkOffset = () => {
+      const current = getZoneOffsetMinutes(tz);
+      if (lastOffsetRef.current === null) {
+        lastOffsetRef.current = current;
+        return;
+      }
+      if (current !== lastOffsetRef.current) {
+        lastOffsetRef.current = current;
+        setupNotifications();
+      }
+    };
+    const interval = setInterval(checkOffset, 60 * 60 * 1000); // hourly
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') checkOffset();
+    });
+    // Initial run
+    checkOffset();
+    return () => clearInterval(interval);
+  }, [profile?.timezone, profile?.timezone_manual, setupNotifications]);
+
+
+
   async function createHabit(habit: Omit<Habit, 'id' | 'user_id' | 'created_at' | 'updated_at' | 'target_days'> & { target_days?: number }) {
     if (!user) throw new Error('You must be logged in to create a habit.');
     const trimmedName = habit.name.trim().toLowerCase();
-    if (habits.find(h => h.name.trim().toLowerCase() === trimmedName))
-      throw new Error('A habit with this name already exists.');
-    const { data, error } = await supabase
-      .from('habits')
-      .insert({
-        ...habit,
-        user_id: user.id,
-        active_days: habit.frequency === 'daily' ? [0,1,2,3,4,5,6] : habit.active_days,
-        target_days: 7,
-      })
-      .select()
-      .single();
-    if (error) throw error;
-    setHabits([data, ...habits]);
-    return data;
+    const duplicate = habits.find(
+      h => h.name.trim().toLowerCase() === trimmedName
+    );
+
+    if (duplicate) {
+      throw new Error('A habit with this name already exists. Please choose a different name.');
+    }
+
+    console.log('Creating habit with data:', habit);
+    console.log('User ID:', user.id);
+
+    try {
+      let nextUtc: string | null = null;
+      const effectiveTz = (profile?.timezone && (profile?.timezone_manual || profile?.timezone)) ? profile.timezone! : getBrowserTimeZone();
+      if (habit.reminders_enabled && habit.reminder_time) {
+        nextUtc = nextUtcInstantFromLocalTime(habit.reminder_time, effectiveTz);
+      }
+      const { data, error } = await supabase
+        .from('habits')
+        .insert({
+          ...habit,
+          user_id: user.id,
+          active_days: habit.frequency === 'daily' ? [0,1,2,3,4,5,6] : habit.active_days,
+          target_days: 7,
+          next_reminder_at_utc: nextUtc
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Supabase error creating habit:', error);
+        throw error;
+      }
+
+      console.log('Habit created successfully:', data);
+      setHabits([data, ...habits]);
+      return data;
+    } catch (error) {
+      console.error('Exception creating habit:', error);
+      throw error;
+    }
   }
 
   async function updateHabit(id: string, updates: Partial<Habit>) {
@@ -212,8 +276,24 @@ export function HabitsProvider({ children }: HabitsProviderProps) {
       if (habits.find(h => h.id !== id && h.name.trim().toLowerCase() === name))
         throw new Error('A habit with this name already exists.');
     }
-    if (updates.frequency === 'daily') updates.active_days = [0,1,2,3,4,5,6];
-    const { error } = await supabase.from('habits').update(updates).eq('id', id);
+    // Ensure 'daily' habits save with all days
+    if (updates.frequency === 'daily') {
+      updates.active_days = [0, 1, 2, 3, 4, 5, 6];
+    }
+
+  let nextUtc: string | null | undefined = undefined;
+    const effectiveTz = (profile?.timezone && (profile?.timezone_manual || profile?.timezone)) ? profile.timezone! : getBrowserTimeZone();
+    if (updates.reminders_enabled === false || updates.reminder_time === null) {
+  nextUtc = null; // explicit null to clear
+    } else if (updates.reminders_enabled && updates.reminder_time) {
+      nextUtc = nextUtcInstantFromLocalTime(updates.reminder_time, effectiveTz);
+    }
+
+    const { error } = await supabase
+      .from('habits')
+      .update({ ...updates, next_reminder_at_utc: nextUtc })
+      .eq('id', id);
+
     if (error) throw error;
     setHabits(habits.map(h => h.id === id ? { ...h, ...updates } : h));
   }
@@ -252,7 +332,7 @@ export function HabitsProvider({ children }: HabitsProviderProps) {
     if (!habit) return 0;
     const activeDays = habit.frequency === 'daily' ? [0,1,2,3,4,5,6] : (habit.active_days || []);
     let streak = 0;
-    let current = new Date();
+    const current = new Date();
     for (let i = 0; i < 365; i++) {
       const dow = current.getDay();
       if (activeDays.includes(dow)) {
@@ -279,8 +359,10 @@ export function HabitsProvider({ children }: HabitsProviderProps) {
     if (error) throw error;
     setHabits(habits.map(h => h.id === habitId ? { ...h, snoozed_until: null, snooze_duration: null } : h));
     const habit = habits.find(h => h.id === habitId);
-    if (habit && habit.reminders_enabled && habit.reminder_time && habit.browser_notifications)
-      scheduleHabitReminder(habit.id, habit.name, habit.reminder_time);
+    if (habit && habit.reminders_enabled && habit.reminder_time && habit.browser_notifications) {
+      const effectiveTz = (profile?.timezone && (profile?.timezone_manual || profile?.timezone)) ? profile.timezone! : getBrowserTimeZone();
+      scheduleHabitReminder(habit.id, habit.name, habit.reminder_time, effectiveTz);
+    }
   }
 
   function isHabitSnoozed(habitId: string) {

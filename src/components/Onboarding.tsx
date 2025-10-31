@@ -49,12 +49,14 @@ export function SuggestedHabits({ shouldSeedDefaults = false }: { shouldSeedDefa
 
   const openCustomize = async (habitIndex: number) => {
     const h = availableHabits[habitIndex];
-    setInitialDraft({ name: h.name, description: h.description, color: h.color, icon: h.icon, frequency: h.frequency, target_days: h.target_days });
+    const freq = h.frequency === 'weekly' ? 'custom' : (h.frequency as 'daily' | 'custom');
+    setInitialDraft({ name: h.name, description: h.description, color: h.color, icon: h.icon, frequency: freq, target_days: h.target_days });
     setShowHabitForm(true);
   };
 
   const handleQuickAdd = async (habitIndex: number) => {
     const h = availableHabits[habitIndex];
+    const freq = h.frequency === 'weekly' ? 'custom' : (h.frequency as 'daily' | 'custom');
     setSaving(true);
     try {
       await createHabit({
@@ -62,7 +64,8 @@ export function SuggestedHabits({ shouldSeedDefaults = false }: { shouldSeedDefa
         description: h.description,
         color: h.color,
         icon: h.icon,
-        frequency: h.frequency,
+        frequency: freq,
+        active_days: freq === 'daily' ? [0, 1, 2, 3, 4, 5, 6] : [1, 2, 3, 4, 5], // weekdays default for custom
         target_days: h.target_days,
         is_active: true,
         reminder_time: null,
@@ -224,7 +227,12 @@ export function Onboarding() {
 
   // Mark as shown so it won't appear next time
   if (typeof window !== 'undefined') {
-    try { localStorage.setItem(key, '1'); } catch {}
+    try { 
+      localStorage.setItem(key, '1'); 
+    } catch (e) {
+      // Ignore storage errors
+      console.warn('Failed to save onboarding state:', e);
+    }
   }
 
   return (

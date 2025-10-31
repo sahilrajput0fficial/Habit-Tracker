@@ -80,7 +80,7 @@ export function HabitForm({ habitId, onClose, initial }: Props) {
       if (initial.description !== undefined) setDescription(initial.description);
       if (initial.color) setColor(initial.color);
       if (initial.icon) setIcon(initial.icon);
-      if (initial.frequency) setFrequency(initial.frequency);
+      if (initial.frequency) setFrequency(initial.frequency as 'daily' | 'custom');
       if (typeof initial.target_days === 'number') setTargetDays(initial.target_days);
       if (typeof initial.reminders_enabled === 'boolean') setRemindersEnabled(initial.reminders_enabled);
       if (typeof initial.browser_notifications === 'boolean') setBrowserNotifications(initial.browser_notifications);
@@ -134,39 +134,22 @@ export function HabitForm({ habitId, onClose, initial }: Props) {
         email_notifications: emailNotifications,
       });
     } else {
-      const payload: Parameters<typeof createHabit>[0] = {
+      await createHabit({
         name,
         description,
         color,
         icon,
         frequency,
-        target_days: targetDays,
+        active_days: finalActiveDays,
         is_active: true,
+        target_days: targetDays,
         reminder_time: remindersEnabled ? reminderTime : null,
         reminders_enabled: remindersEnabled,
         browser_notifications: browserNotifications,
         email_notifications: emailNotifications,
         snoozed_until: null,
         snooze_duration: null,
-      };
-      await createHabit(payload);
-      await createHabit({
-  name,
-  description,
-  color,
-  icon,
-  frequency,
-  active_days: finalActiveDays,
-  is_active: true,
-  target_days: 7,
-  reminder_time: remindersEnabled ? reminderTime : null,
-  reminders_enabled: remindersEnabled,
-  browser_notifications: browserNotifications,
-  email_notifications: emailNotifications,
-  snoozed_until: null, // default
-  snooze_duration: 0,  // default
-});
-
+      });
     }
     onClose();
   } catch (error: unknown) {

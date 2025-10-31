@@ -1,4 +1,5 @@
 // Notification utilities for habit reminders
+import { nextDateTimeInZone } from './timeUtils';
 
 export interface NotificationPermissionState {
   granted: boolean;
@@ -121,9 +122,10 @@ export class NotificationManager {
   scheduleNotification(
     id: string,
     title: string,
-    time: string, // HH:MM format
-    options?: NotificationOptions,
-    skipIfSnoozed?: boolean
+    time: string, // HH:MM format (local intended time)
+    options: NotificationOptions | undefined,
+    skipIfSnoozed: boolean | undefined,
+    timeZone: string
   ): void {
     // Clear any existing notification with this ID
     this.cancelScheduledNotification(id);
@@ -134,22 +136,14 @@ export class NotificationManager {
       return;
     }
 
-    const [hours, minutes] = time.split(':').map(Number);
     const now = new Date();
-    const scheduledTime = new Date();
-    scheduledTime.setHours(hours, minutes, 0, 0);
-
-    // If the time has already passed today, schedule for tomorrow
-    if (scheduledTime <= now) {
-      scheduledTime.setDate(scheduledTime.getDate() + 1);
-    }
-
-    const delay = scheduledTime.getTime() - now.getTime();
+    const scheduledTime = nextDateTimeInZone(time, timeZone);
+    const delay = Math.max(0, scheduledTime.getTime() - now.getTime());
 
     const timeoutId = window.setTimeout(() => {
       this.showNotification(title, options);
       this.scheduledNotifications.delete(id);
-    }, delay);
+  }, delay);
 
     this.scheduledNotifications.set(id, timeoutId);
   }
@@ -184,7 +178,8 @@ export const notificationManager = NotificationManager.getInstance();
 export const scheduleHabitReminder = (
   habitId: string,
   habitName: string,
-  reminderTime: string
+  reminderTime: string,
+  timeZone: string
 ): void => {
   notificationManager.scheduleNotification(
     `habit-${habitId}`,
@@ -195,7 +190,9 @@ export const scheduleHabitReminder = (
       tag: `habit-${habitId}`,
       requireInteraction: false,
       silent: false,
-    }
+    },
+    undefined,
+    timeZone
   );
 };
 
@@ -244,20 +241,13 @@ export const scheduleEmailReminder = (
   habitId: string,
   habitName: string,
   userEmail: string,
-  reminderTime: string
+  reminderTime: string,
+  timeZone: string
 ): void => {
-  // Calculate next reminder time
-  const [hours, minutes] = reminderTime.split(':').map(Number);
+  // Calculate next reminder time in the selected timezone
   const now = new Date();
-  const scheduledTime = new Date();
-  scheduledTime.setHours(hours, minutes, 0, 0);
-
-  // If the time has already passed today, schedule for tomorrow
-  if (scheduledTime <= now) {
-    scheduledTime.setDate(scheduledTime.getDate() + 1);
-  }
-
-  const delay = scheduledTime.getTime() - now.getTime();
+  const scheduledTime = nextDateTimeInZone(reminderTime, timeZone);
+  const delay = Math.max(0, scheduledTime.getTime() - now.getTime());
 
   // Schedule the email reminder
   setTimeout(async () => {
@@ -276,7 +266,7 @@ export const scheduleEmailReminder = (
     }
 
     // Reschedule for next day
-    scheduleEmailReminder(habitId, habitName, userEmail, reminderTime);
+    scheduleEmailReminder(habitId, habitName, userEmail, reminderTime, timeZone);
   }, delay);
 };
 
