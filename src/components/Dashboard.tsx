@@ -24,6 +24,7 @@ import { HistoryView } from './HistoryView';
 import { SuggestedHabits, Onboarding } from './Onboarding';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { useHabits } from '../hooks/useHabits';
 import { PrebuiltHabitsManager } from './PrebuiltHabitsManager';
 import { Footer } from './Footer';
 import { TimezoneSettings } from './TimezoneSettings';
@@ -75,16 +76,16 @@ export function Dashboard() {
   }
 
   // Filter habits to only those active today
-  const activeHabitsToday = habits.filter((habit) => {
+  const activeHabitsToday = habits.filter((habit: any) => {
     const frequency = (habit.frequency as any) === 'weekly' ? 'custom' : habit.frequency;
     const activeDays =
       frequency === 'daily' ? [0, 1, 2, 3, 4, 5, 6] : habit.active_days || [];
     return activeDays.includes(todayDay);
   });
 
-  const completedToday = activeHabitsToday.filter((h) => isCompleted(h.id, today)).length;
+  const completedToday = activeHabitsToday.filter((h: any) => isCompleted(h.id, today)).length;
   const totalActive = activeHabitsToday.length;
-  const reminderCount = habits.filter((h) => h.reminders_enabled && h.reminder_time).length;
+  const reminderCount = habits.filter((h: any) => h.reminders_enabled && h.reminder_time).length;
 
   return (
     <div className={isDarkMode ? 'dark' : ''}>
@@ -256,7 +257,7 @@ export function Dashboard() {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {activeHabitsToday.map((habit) => {
+                  {activeHabitsToday.map((habit: any) => {
                     const completed = isCompleted(habit.id, today);
                     const streak = getStreak(habit.id);
                     return (

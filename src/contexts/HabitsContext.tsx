@@ -332,7 +332,7 @@ export function HabitsProvider({ children }: HabitsProviderProps) {
     if (!habit) return 0;
     const activeDays = habit.frequency === 'daily' ? [0,1,2,3,4,5,6] : (habit.active_days || []);
     let streak = 0;
-    let current = new Date();
+    const current = new Date();
     for (let i = 0; i < 365; i++) {
       const dow = current.getDay();
       if (activeDays.includes(dow)) {
