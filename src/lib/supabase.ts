@@ -34,6 +34,7 @@ export type Habit = {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  category: string[];
 };
 
 export type HabitCompletion = {
