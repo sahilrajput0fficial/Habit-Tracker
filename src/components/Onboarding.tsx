@@ -55,12 +55,14 @@ export function SuggestedHabits({ shouldSeedDefaults = false, onHabitAdded, onSa
 
   const openCustomize = async (habitIndex: number) => {
     const h = availableHabits[habitIndex];
-    setInitialDraft({ name: h.name, description: h.description, color: h.color, icon: h.icon, frequency: h.frequency, target_days: h.target_days });
+    const freq = h.frequency === 'weekly' ? 'custom' : (h.frequency as 'daily' | 'custom');
+    setInitialDraft({ name: h.name, description: h.description, color: h.color, icon: h.icon, frequency: freq, target_days: h.target_days });
     setShowHabitForm(true);
   };
 
   const handleQuickAdd = async (habitIndex: number) => {
     const h = availableHabits[habitIndex];
+    const freq = h.frequency === 'weekly' ? 'custom' : (h.frequency as 'daily' | 'custom');
     setSaving(true);
     try {
       await createHabit({
@@ -311,10 +313,14 @@ export function Onboarding({ onOpenPrebuiltManager }: { onOpenPrebuiltManager?: 
   // if (alreadyShown) return null;
 
   // Mark as shown so it won't appear next time
-  // Temporarily disabled for testing
-  // if (typeof window !== 'undefined') {
-  //   try { localStorage.setItem(key, '1'); } catch {}
-  // }
+  if (typeof window !== 'undefined') {
+    try { 
+      localStorage.setItem(key, '1'); 
+    } catch (e) {
+      // Ignore storage errors
+      console.warn('Failed to save onboarding state:', e);
+    }
+  }
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">

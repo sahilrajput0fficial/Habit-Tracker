@@ -134,7 +134,7 @@ export function HabitForm({ habitId, onClose, initial }: Props) {
         email_notifications: emailNotifications,
       });
     } else {
-      const payload: Parameters<typeof createHabit>[0] = {
+      await createHabit({
         name,
         description,
         color,
@@ -143,6 +143,7 @@ export function HabitForm({ habitId, onClose, initial }: Props) {
         active_days: finalActiveDays,
         target_days: targetDays,
         is_active: true,
+        target_days: targetDays,
         reminder_time: remindersEnabled ? reminderTime : null,
         reminders_enabled: remindersEnabled,
         browser_notifications: browserNotifications,
