@@ -15,6 +15,7 @@ import {
   Edit,
   Trash2,
   BookOpen,
+  Download,
 } from 'lucide-react';
 import { HabitForm } from './HabitForm';
 import { CalendarView } from './CalendarView';
@@ -22,16 +23,17 @@ import { ProgressView } from './ProgressView';
 import { NotificationsPanel } from './NotificationsPanel';
 import { HistoryView } from './HistoryView';
 import { SuggestedHabits, Onboarding } from './Onboarding';
+
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { PrebuiltHabitsManager } from './PrebuiltHabitsManager';
+
 import { Footer } from './Footer';
 
 type View = 'dashboard' | 'calendar' | 'progress' | 'history';
 
 export function Dashboard() {
-  const { habits, loading, toggleCompletion, isCompleted, getStreak, deleteHabit } = useHabits();
-  const { signOut } = useAuth();
+  const { habits, completions, loading, toggleCompletion, isCompleted, getStreak, deleteHabit } = useHabits();
+  const { signOut, user } = useAuth();
   const { theme, toggleTheme } = useTheme();
 
   const [currentView, setCurrentView] = useState<View>('dashboard');
@@ -39,7 +41,8 @@ export function Dashboard() {
   const [editingHabit, setEditingHabit] = useState<string | null>(null);
   const [deletingHabit, setDeletingHabit] = useState<string | null>(null);
   const [showNotifications, setShowNotifications] = useState(false);
-  const [showPrebuiltManager, setShowPrebuiltManager] = useState(false);
+
+  const [isExporting, setIsExporting] = useState(false);
 
   const today = new Date().toISOString().split('T')[0];
   const todayDay = new Date().getDay();
@@ -61,6 +64,33 @@ export function Dashboard() {
     } catch (error) {
       console.error('Error deleting habit:', error);
       alert('Failed to delete habit. Please try again.');
+    }
+  };
+
+  const handleExportPDF = async () => {
+    if (habits.length === 0) {
+      alert('No habits to export. Please create some habits first.');
+      return;
+    }
+
+    setIsExporting(true);
+    try {
+      const { generateHabitsPDF } = await import('../utils/pdfExport');
+      const habitsWithCompletions = habits.map(habit => ({
+        ...habit,
+        completed_dates: completions
+          .filter(c => c.habit_id === habit.id)
+          .map(c => c.completed_date),
+      }));
+      await generateHabitsPDF({
+        habits: habitsWithCompletions,
+        userName: user?.email?.split('@')[0] || 'User',
+      });
+    } catch (error) {
+      console.error('Error exporting PDF:', error);
+      alert('Failed to export PDF. Please try again.');
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -127,6 +157,8 @@ export function Dashboard() {
                 >
                   {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
                 </button>
+
+
 
                 {/* Logout */}
                 <button
@@ -216,13 +248,23 @@ export function Dashboard() {
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
                   Today's Habits
                 </h2>
-                <button
-                  onClick={() => setShowHabitForm(true)}
-                  className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  <Plus className="w-5 h-5" />
-                  <span>Add Habit</span>
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleExportPDF}
+                    disabled={isExporting}
+                    className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Download className="w-5 h-5" />
+                    <span>{isExporting ? 'Exporting...' : 'Export PDF'}</span>
+                  </button>
+                  <button
+                    onClick={() => setShowHabitForm(true)}
+                    className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    <Plus className="w-5 h-5" />
+                    <span>Add Habit</span>
+                  </button>
+                </div>
               </div>
 
               {/* Habit Cards */}
@@ -318,7 +360,7 @@ export function Dashboard() {
                 </div>
               )}
 
-              {habits.length > 0 && <SuggestedHabits />}
+              <SuggestedHabits />
             </>
           )}
 
@@ -339,12 +381,6 @@ export function Dashboard() {
             }}
           />
         )}
-
-        {/* Prebuilt Habits Manager */}
-        <PrebuiltHabitsManager
-          isOpen={showPrebuiltManager}
-          onClose={() => setShowPrebuiltManager(false)}
-        />
 
         {/* Onboarding Modal */}
         <Onboarding />
