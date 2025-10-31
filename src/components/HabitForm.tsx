@@ -120,39 +120,38 @@ export function HabitForm({ habitId, onClose, initial }: Props) {
 
   try {
     if (habitId) {
-      await updateHabit(habitId, {
-        name,
-        description,
-        color,
-        icon,
-        frequency,
-        active_days: finalActiveDays,
-        target_days: targetDays,
-        reminder_time: remindersEnabled ? reminderTime : null,
-        reminders_enabled: remindersEnabled,
-        browser_notifications: browserNotifications,
-        email_notifications: emailNotifications,
-      });
-    } else {
-      await createHabit({
-        name,
-        description,
-        color,
-        icon,
-        frequency,
-        active_days: finalActiveDays,
-        target_days: targetDays,
-        is_active: true,
-        target_days: targetDays,
-        reminder_time: remindersEnabled ? reminderTime : null,
-        reminders_enabled: remindersEnabled,
-        browser_notifications: browserNotifications,
-        email_notifications: emailNotifications,
-        snoozed_until: null,
-        snooze_duration: null,
-      };
-      await createHabit(payload);
-    }
+  await updateHabit(habitId, {
+    name,
+    description,
+    color,
+    icon,
+    frequency,
+    active_days: finalActiveDays,
+    target_days: targetDays,
+    reminder_time: remindersEnabled ? reminderTime : null,
+    reminders_enabled: remindersEnabled,
+    browser_notifications: browserNotifications,
+    email_notifications: emailNotifications,
+  });
+} else {
+  await createHabit({
+    name,
+    description,
+    color,
+    icon,
+    frequency,
+    active_days: finalActiveDays,
+    target_days: targetDays,
+    is_active: true,
+    reminder_time: remindersEnabled ? reminderTime : null,
+    reminders_enabled: remindersEnabled,
+    browser_notifications: browserNotifications,
+    email_notifications: emailNotifications,
+    snoozed_until: null,
+    snooze_duration: null,
+  });
+}
+
     onClose();
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'An error occurred while saving the habit.';
