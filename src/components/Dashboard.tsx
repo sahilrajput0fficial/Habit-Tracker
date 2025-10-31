@@ -14,6 +14,7 @@ import {
   Edit,
   Trash2,
   BookOpen,
+  Download,
   Globe2,
 } from 'lucide-react';
 import { HabitForm } from './HabitForm';
@@ -22,8 +23,10 @@ import { ProgressView } from './ProgressView';
 import { NotificationsPanel } from './NotificationsPanel';
 import { HistoryView } from './HistoryView';
 import { SuggestedHabits, Onboarding } from './Onboarding';
+
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { ExportModal } from './ExportModal';
 import { useHabits } from '../hooks/useHabits';
 import { PrebuiltHabitsManager } from './PrebuiltHabitsManager';
 import { Footer } from './Footer';
@@ -32,8 +35,8 @@ import { TimezoneSettings } from './TimezoneSettings';
 type View = 'dashboard' | 'calendar' | 'progress' | 'history';
 
 export function Dashboard() {
-  const { habits, loading, toggleCompletion, isCompleted, getStreak, deleteHabit } = useHabits();
-  const { signOut } = useAuth();
+  const { habits, completions, loading, toggleCompletion, isCompleted, getStreak, deleteHabit } = useHabits();
+  const { signOut, user } = useAuth();
   const { theme, toggleTheme } = useTheme();
 
   const [currentView, setCurrentView] = useState<View>('dashboard');
@@ -41,6 +44,7 @@ export function Dashboard() {
   const [editingHabit, setEditingHabit] = useState<string | null>(null);
   const [deletingHabit, setDeletingHabit] = useState<string | null>(null);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
   const [showTzSettings, setShowTzSettings] = useState(false);
   const [showPrebuiltManager, setShowPrebuiltManager] = useState(false);
 
@@ -66,6 +70,8 @@ export function Dashboard() {
       alert('Failed to delete habit. Please try again.');
     }
   };
+
+
 
   if (loading) {
     return (
@@ -137,6 +143,8 @@ export function Dashboard() {
                 >
                   {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
                 </button>
+
+
 
                 {/* Logout */}
                 <button
@@ -226,13 +234,22 @@ export function Dashboard() {
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
                   Today's Habits
                 </h2>
-                <button
-                  onClick={() => setShowHabitForm(true)}
-                  className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  <Plus className="w-5 h-5" />
-                  <span>Add Habit</span>
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setShowExportModal(true)}
+                    className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+                  >
+                    <Download className="w-5 h-5" />
+                    <span>Export Data</span>
+                  </button>
+                  <button
+                    onClick={() => setShowHabitForm(true)}
+                    className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    <Plus className="w-5 h-5" />
+                    <span>Add Habit</span>
+                  </button>
+                </div>
               </div>
 
               {/* Habit Cards */}
@@ -328,7 +345,7 @@ export function Dashboard() {
                 </div>
               )}
 
-              {habits.length > 0 && <SuggestedHabits />}
+              <SuggestedHabits />
             </>
           )}
 
@@ -350,10 +367,10 @@ export function Dashboard() {
           />
         )}
 
-        {/* Prebuilt Habits Manager */}
-        <PrebuiltHabitsManager
-          isOpen={showPrebuiltManager}
-          onClose={() => setShowPrebuiltManager(false)}
+        {/* Export Modal */}
+        <ExportModal
+          isOpen={showExportModal}
+          onClose={() => setShowExportModal(false)}
         />
 
         {/* Onboarding Modal */}

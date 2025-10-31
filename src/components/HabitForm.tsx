@@ -22,7 +22,7 @@ type Props = {
     description: string;
     color: string;
     icon: string;
-    frequency: 'daily' | 'weekly';
+    frequency: 'daily' | 'weekly' | 'custom';
     target_days: number;
     reminders_enabled: boolean;
     reminder_time: string | null;
@@ -37,11 +37,11 @@ export function HabitForm({ habitId, onClose, initial }: Props) {
   const [description, setDescription] = useState('');
   const [color, setColor] = useState(COLORS[0]);
   const [icon, setIcon] = useState(ICONS[0]);
-  
+
   // Updated state for frequency
   const [frequency, setFrequency] = useState<'daily' | 'custom'>('daily');
   const [activeDays, setActiveDays] = useState<number[]>(ALL_DAYS); // New state
-  
+
 
   const [targetDays, setTargetDays] = useState(7);
   const [remindersEnabled, setRemindersEnabled] = useState(false);
@@ -60,7 +60,7 @@ export function HabitForm({ habitId, onClose, initial }: Props) {
         setDescription(habit.description);
         setColor(habit.color);
         setIcon(habit.icon);
-        
+
         // Handle old 'weekly' frequency as 'custom'
         if ((habit.frequency as any) === 'weekly') {
           setFrequency('custom');
@@ -80,7 +80,7 @@ export function HabitForm({ habitId, onClose, initial }: Props) {
       if (initial.description !== undefined) setDescription(initial.description);
       if (initial.color) setColor(initial.color);
       if (initial.icon) setIcon(initial.icon);
-      if (initial.frequency) setFrequency(initial.frequency as 'daily' | 'custom');
+      if (initial.frequency) setFrequency(initial.frequency === 'weekly' ? 'custom' : initial.frequency as 'daily' | 'custom');
       if (typeof initial.target_days === 'number') setTargetDays(initial.target_days);
       if (typeof initial.reminders_enabled === 'boolean') setRemindersEnabled(initial.reminders_enabled);
       if (typeof initial.browser_notifications === 'boolean') setBrowserNotifications(initial.browser_notifications);
@@ -104,7 +104,7 @@ export function HabitForm({ habitId, onClose, initial }: Props) {
     } else {
       newActiveDays = [...activeDays, dayIndex].sort();
     }
-    
+
     // Don't allow unselecting all days
     if (newActiveDays.length > 0) {
       setActiveDays(newActiveDays);
@@ -120,37 +120,38 @@ export function HabitForm({ habitId, onClose, initial }: Props) {
 
   try {
     if (habitId) {
-      await updateHabit(habitId, {
-        name,
-        description,
-        color,
-        icon,
-        frequency,
-        active_days: finalActiveDays,
-        target_days: targetDays,
-        reminder_time: remindersEnabled ? reminderTime : null,
-        reminders_enabled: remindersEnabled,
-        browser_notifications: browserNotifications,
-        email_notifications: emailNotifications,
-      });
-    } else {
-      await createHabit({
-        name,
-        description,
-        color,
-        icon,
-        frequency,
-        active_days: finalActiveDays,
-        is_active: true,
-        target_days: targetDays,
-        reminder_time: remindersEnabled ? reminderTime : null,
-        reminders_enabled: remindersEnabled,
-        browser_notifications: browserNotifications,
-        email_notifications: emailNotifications,
-        snoozed_until: null,
-        snooze_duration: null,
-      });
-    }
+  await updateHabit(habitId, {
+    name,
+    description,
+    color,
+    icon,
+    frequency,
+    active_days: finalActiveDays,
+    target_days: targetDays,
+    reminder_time: remindersEnabled ? reminderTime : null,
+    reminders_enabled: remindersEnabled,
+    browser_notifications: browserNotifications,
+    email_notifications: emailNotifications,
+  });
+} else {
+  await createHabit({
+    name,
+    description,
+    color,
+    icon,
+    frequency,
+    active_days: finalActiveDays,
+    target_days: targetDays,
+    is_active: true,
+    reminder_time: remindersEnabled ? reminderTime : null,
+    reminders_enabled: remindersEnabled,
+    browser_notifications: browserNotifications,
+    email_notifications: emailNotifications,
+    snoozed_until: null,
+    snooze_duration: null,
+  });
+}
+
     onClose();
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'An error occurred while saving the habit.';
@@ -186,7 +187,7 @@ export function HabitForm({ habitId, onClose, initial }: Props) {
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {error && (
-            <div 
+            <div
               ref={errorRef}
               className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg text-sm">
               {error}
