@@ -64,6 +64,7 @@ type Challenge = {
   linked_habit_id: string[];
   duration_days: number;
   goal_type: 'daily_completion' | 'total_count';
+  goal_value: number;
   start_date: string;
   end_date: string;
   status: 'active' | 'completed' | 'failed';
@@ -586,38 +587,17 @@ export function HabitsProvider({ children }: HabitsProviderProps) {
     if (linkedHabits.length === 0) return { completed: 0, total: 0, percentage: 0 };
 
     let completed = 0;
-    let total = 0;
-
-    if (challenge.goal_type === 'daily_completion') {
-      // Count days completed within challenge period
-      // A day is completed if all linked habits are completed that day
+    for (const habit of linkedHabits) {
       for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
         const dateStr = d.toISOString().split('T')[0];
-        const dayOfWeek = d.getDay();
-        // Check if all linked habits are active on this day and completed
-        const allCompleted = linkedHabits.every(habit => {
-          const isActiveDay = habit.frequency === 'daily' || habit.active_days.includes(dayOfWeek);
-          return isActiveDay && isCompleted(habit.id, dateStr);
-        });
-        if (linkedHabits.some(habit => habit.frequency === 'daily' || habit.active_days.includes(dayOfWeek))) {
-          total++;
-          if (allCompleted) completed++;
-        }
-      }
-    } else if (challenge.goal_type === 'total_count') {
-      // Count total completions within challenge period across all linked habits
-      const totalDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-      total = linkedHabits.length * totalDays;
-      for (const habit of linkedHabits) {
-        for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
-          const dateStr = d.toISOString().split('T')[0];
-          if (isCompleted(habit.id, dateStr)) completed++;
+        if (isCompleted(habit.id, dateStr)) {
+          completed++;
         }
       }
     }
 
-    const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
-    return { completed, total, percentage };
+    const percentage = challenge.goal_value > 0 ? Math.round((completed / challenge.goal_value) * 100) : 0;
+    return { completed, total: challenge.goal_value, percentage };
   }
 
   async function updateChallengeStatus(challengeId: string) {

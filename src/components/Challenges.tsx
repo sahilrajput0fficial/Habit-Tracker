@@ -34,7 +34,7 @@ interface PrebuiltChallenge {
 
 export function Challenges() {
   const { user } = useAuth();
-  const { habits, isCompleted, createHabit, refreshHabits } = useHabits();
+  const { habits, isCompleted, createHabit, refreshHabits, updateChallengeStatus } = useHabits();
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [prebuiltChallenges, setPrebuiltChallenges] = useState<PrebuiltChallenge[]>([]);
   const [loading, setLoading] = useState(true);
@@ -47,6 +47,19 @@ export function Challenges() {
     fetchChallenges();
     fetchPrebuiltChallenges();
   }, []);
+
+  useEffect(() => {
+    // Update status for active challenges that have ended
+    const updateStatuses = async () => {
+      const activeChallenges = challenges.filter(c => c.status === 'active');
+      await Promise.all(activeChallenges.map(c => updateChallengeStatus(c.id)));
+      // Refresh challenges after updating statuses
+      await fetchChallenges();
+    };
+    if (challenges.length > 0) {
+      updateStatuses();
+    }
+  }, [challenges]);
 
   const fetchChallenges = async () => {
     try {
@@ -113,30 +126,22 @@ export function Challenges() {
   };
 
   const getChallengeProgress = (challenge: Challenge) => {
-    const habitId = challenge.linked_habit_id[0];
-    const habit = habits.find(h => h.id === habitId);
-    if (!habit) return 0;
+    const linkedHabits = habits.filter(h => challenge.linked_habit_id.includes(h.id));
+    if (linkedHabits.length === 0) return 0;
 
     const startDate = new Date(challenge.start_date);
     const endDate = new Date(challenge.end_date);
-    const today = new Date();
 
-    if (challenge.goal_type === 'daily_completion') {
-      let completedDays = 0;
-      let current = new Date(startDate);
-      while (current <= endDate && current <= today) {
-        const dateStr = current.toISOString().split('T')[0];
+    let completed = 0;
+    for (const habit of linkedHabits) {
+      for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+        const dateStr = d.toISOString().split('T')[0];
         if (isCompleted(habit.id, dateStr)) {
-          completedDays++;
+          completed++;
         }
-        current.setDate(current.getDate() + 1);
       }
-      return completedDays;
-    } else {
-      // For total_count, we'd need to track actual counts, not just completion
-      // This is a simplified version
-      return 0;
     }
+    return completed;
   };
 
   const getDaysRemaining = (challenge: Challenge) => {
@@ -237,6 +242,157 @@ export function Challenges() {
                       <div className="flex items-center gap-1">
                         <Calendar className="w-4 h-4" />
                         <span>{challenge.duration_days} days total</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Completed Challenges */}
+      {challenges.filter(c => c.status === 'completed').length > 0 && (
+        <div>
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Completed Challenges</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {challenges.filter(c => c.status === 'completed').map((challenge) => {
+              const progress = getChallengeProgress(challenge);
+              const progressPercent = (progress / challenge.goal_value) * 100;
+
+              return (
+                <div
+                  key={challenge.id}
+                  className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-green-200 dark:border-green-700"
+                >
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
+                        <Trophy className="w-5 h-5 text-green-600 dark:text-green-400" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-gray-900 dark:text-white">
+                          {challenge.name}
+                        </h3>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          {challenge.description}
+                        </p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          Linked Habit: {habits.find(h => h.id === challenge.linked_habit_id[0])?.name || 'Unknown Habit'}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => deleteChallenge(challenge.id)}
+                      className="p-2 text-gray-400 hover:text-red-600 dark:hover:text-red-400 rounded-lg transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-600 dark:text-gray-400">Progress</span>
+                      <span className="font-medium text-green-600 dark:text-green-400">
+                        {progress}/{challenge.goal_value} - Completed!
+                      </span>
+                    </div>
+
+                    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                      <div
+                        className="bg-green-600 h-2 rounded-full transition-all duration-300"
+                        style={{ width: `${Math.min(progressPercent, 100)}%` }}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400">
+                      <div className="flex items-center gap-1">
+                        <Calendar className="w-4 h-4" />
+                        <span>{challenge.duration_days} days total</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <CheckCircle2 className="w-4 h-4 text-green-600" />
+                        <span className="text-green-600 dark:text-green-400">Completed</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Failed Challenges */}
+      {challenges.filter(c => c.status === 'failed').length > 0 && (
+        <div>
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Failed Challenges</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {challenges.filter(c => c.status === 'failed').map((challenge) => {
+              const progress = getChallengeProgress(challenge);
+              const progressPercent = (progress / challenge.goal_value) * 100;
+              const motivationalMessage = progressPercent >= 60
+                ? `You made it ${Math.round(progressPercent)}% — try again!`
+                : `You completed ${Math.round(progressPercent)}% — keep going!`;
+
+              return (
+                <div
+                  key={challenge.id}
+                  className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-red-200 dark:border-red-700"
+                >
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-red-100 dark:bg-red-900/30 rounded-lg flex items-center justify-center">
+                        <Circle className="w-5 h-5 text-red-600 dark:text-red-400" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-gray-900 dark:text-white">
+                          {challenge.name}
+                        </h3>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          {challenge.description}
+                        </p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          Linked Habit: {habits.find(h => h.id === challenge.linked_habit_id[0])?.name || 'Unknown Habit'}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => deleteChallenge(challenge.id)}
+                      className="p-2 text-gray-400 hover:text-red-600 dark:hover:text-red-400 rounded-lg transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-600 dark:text-gray-400">Progress</span>
+                      <span className="font-medium text-red-600 dark:text-red-400">
+                        {progress}/{challenge.goal_value}
+                      </span>
+                    </div>
+
+                    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                      <div
+                        className="bg-red-600 h-2 rounded-full transition-all duration-300"
+                        style={{ width: `${Math.min(progressPercent, 100)}%` }}
+                      />
+                    </div>
+
+                    <div className="text-sm text-red-600 dark:text-red-400 font-medium">
+                      {motivationalMessage}
+                    </div>
+
+                    <div className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400">
+                      <div className="flex items-center gap-1">
+                        <Calendar className="w-4 h-4" />
+                        <span>{challenge.duration_days} days total</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Circle className="w-4 h-4 text-red-600" />
+                        <span className="text-red-600 dark:text-red-400">Failed</span>
                       </div>
                     </div>
                   </div>
