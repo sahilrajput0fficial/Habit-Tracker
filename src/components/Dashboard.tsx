@@ -98,7 +98,6 @@ export function Dashboard() {
 
   // 2. Filter habits active for today
   const activeHabitsToday = habits.filter((habit) => {
-  const activeHabitsToday = habits.filter((habit: any) => {
     const frequency = (habit.frequency as any) === 'weekly' ? 'custom' : habit.frequency;
     const activeDays =
       frequency === 'daily' ? [0, 1, 2, 3, 4, 5, 6] : habit.active_days || [];
@@ -110,9 +109,6 @@ export function Dashboard() {
     if (filterCategory === 'All') return true;
     return getCategories(habit).includes(filterCategory);
   });
-  const completedToday = activeHabitsToday.filter((h: any) => isCompleted(h.id, today)).length;
-  const totalActive = activeHabitsToday.length;
-  const reminderCount = habits.filter((h: any) => h.reminders_enabled && h.reminder_time).length;
 
   // 4. Update stats based on the *filtered* list
   const completedToday = filteredHabitsToday.filter((h) => isCompleted(h.id, today)).length;
@@ -332,8 +328,7 @@ export function Dashboard() {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {filteredHabitsToday.map((habit) => {
-                  {activeHabitsToday.map((habit: any) => {
+                  {filteredHabitsToday.map((habit) =>{
                     const completed = isCompleted(habit.id, today);
                     const streak = getStreak(habit.id);
                     const habitCategories = getCategories(habit);
