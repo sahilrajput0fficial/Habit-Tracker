@@ -17,6 +17,7 @@ import {
   BookOpen,
   Download,
   Globe2,
+  User,
 } from 'lucide-react';
 import { HabitForm } from './HabitForm';
 import { CalendarView } from './CalendarView';
@@ -24,6 +25,7 @@ import { ProgressView } from './ProgressView';
 import { NotificationsPanel } from './NotificationsPanel';
 import { HistoryView } from './HistoryView';
 import { SuggestedHabits, Onboarding } from './Onboarding';
+import { Profile } from './Profile';
 
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -33,7 +35,7 @@ import { PrebuiltHabitsManager } from './PrebuiltHabitsManager';
 import { Footer } from './Footer';
 import { TimezoneSettings } from './TimezoneSettings';
 
-type View = 'dashboard' | 'calendar' | 'progress' | 'history';
+type View = 'dashboard' | 'calendar' | 'progress' | 'history' | 'profile';
 
 const getCategories = (habit: { category?: string[] | null }): string[] => {
   if (habit.category && habit.category.length > 0) {
@@ -98,7 +100,7 @@ export function Dashboard() {
 
   // 2. Filter habits active for today
   const activeHabitsToday = habits.filter((habit) => {
-    const frequency = (habit.frequency as any) === 'weekly' ? 'custom' : habit.frequency;
+    const frequency = habit.frequency === 'weekly' ? 'custom' : habit.frequency;
     const activeDays =
       frequency === 'daily' ? [0, 1, 2, 3, 4, 5, 6] : habit.active_days || [];
     return activeDays.includes(todayDay);
@@ -188,6 +190,7 @@ export function Dashboard() {
               { id: 'calendar', icon: Calendar, label: 'Calendar' },
               { id: 'progress', icon: TrendingUp, label: 'Progress' },
               { id: 'history', icon: BookOpen, label: 'History' },
+              { id: 'profile', icon: User, label: 'Profile' },
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -420,6 +423,7 @@ export function Dashboard() {
           {currentView === 'calendar' && <CalendarView />}
           {currentView === 'progress' && <ProgressView />}
           {currentView === 'history' && <HistoryView />}
+          {currentView === 'profile' && <Profile />}
         </main>
 
         <Footer />

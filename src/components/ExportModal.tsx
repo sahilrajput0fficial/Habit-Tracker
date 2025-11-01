@@ -296,7 +296,7 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
                     // Calculate active days for this habit in the date range
                     const fromDate = new Date(filters.dateRange.from);
                     const toDate = new Date(filters.dateRange.to);
-                    const frequency = (habit.frequency as any) === 'weekly' ? 'custom' : habit.frequency;
+                    const frequency = habit.frequency === 'weekly' ? 'custom' : habit.frequency;
                     const activeDays = frequency === 'daily' ? [0, 1, 2, 3, 4, 5, 6] : habit.active_days || [];
 
                     let activeDaysCount = 0;

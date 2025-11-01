@@ -73,6 +73,7 @@ export function SuggestedHabits({ shouldSeedDefaults = false, onHabitAdded, onSa
         frequency: h.frequency === 'weekly' ? 'custom' : h.frequency as 'daily' | 'custom',
         active_days: h.frequency === 'weekly' ? [1, 2, 3, 4, 5] : [],
         target_days: h.target_days,
+        category: [h.category],
         is_active: true,
         reminder_time: null,
         reminders_enabled: false,
@@ -81,6 +82,8 @@ export function SuggestedHabits({ shouldSeedDefaults = false, onHabitAdded, onSa
         snoozed_until: null,
         snooze_duration: null,
       });
+      // Refresh habits to ensure the state is updated
+      await refreshHabits();
       // Call the callback to close the onboarding modal after adding a habit
       onHabitAdded?.();
     } finally {
@@ -114,6 +117,7 @@ export function SuggestedHabits({ shouldSeedDefaults = false, onHabitAdded, onSa
             frequency: h.frequency === 'weekly' ? 'custom' : h.frequency as 'daily' | 'custom',
             active_days: h.frequency === 'weekly' ? [1, 2, 3, 4, 5] : [],
             target_days: h.target_days,
+            category: [h.category],
             is_active: true,
             reminder_time: null,
             reminders_enabled: false,
@@ -129,12 +133,11 @@ export function SuggestedHabits({ shouldSeedDefaults = false, onHabitAdded, onSa
       // Refresh habits to update the UI immediately
       await refreshHabits();
       setSelectedIndices(new Set()); // Clear selection after adding
-      onHabitAdded?.();
+      onHabitAdded?.(); // Call the callback to close the onboarding modal after adding a habit
     } finally {
       setSaving(false);
     }
   };
-
   // no-op legacy handler removed; customization now uses HabitForm
 
   if (!prebuiltHabitsLoaded) {
@@ -173,11 +176,10 @@ export function SuggestedHabits({ shouldSeedDefaults = false, onHabitAdded, onSa
             <div
               key={habit.id || index}
               onClick={() => toggleSelection(index)}
-              className={`text-left relative p-4 rounded-xl border-2 transition-all cursor-pointer ${
-                isSelected
+              className={`text-left relative p-4 rounded-xl border-2 transition-all cursor-pointer ${isSelected
                   ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
                   : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
-              }`}
+                }`}
             >
               {isSelected && (
                 <div className="absolute top-2 right-2 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
@@ -313,9 +315,10 @@ export function Onboarding({ onOpenPrebuiltManager }: { onOpenPrebuiltManager?: 
   // if (alreadyShown) return null;
 
   // Mark as shown so it won't appear next time
+  const key = `onboarding_shown_${user?.id ?? 'anon'}`;
   if (typeof window !== 'undefined') {
-    try { 
-      localStorage.setItem(key, '1'); 
+    try {
+      localStorage.setItem(key, '1');
     } catch (e) {
       // Ignore storage errors
       console.warn('Failed to save onboarding state:', e);
