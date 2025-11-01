@@ -70,7 +70,7 @@ export function HabitForm({ habitId, onClose, initial }: Props) {
         
 
         // Handle old 'weekly' frequency as 'custom'
-        if ((habit.frequency as any) === 'weekly') {
+        if (habit.frequency === 'weekly') {
           setFrequency('custom');
           setActiveDays(WEEKDAYS); // Default old 'weekly' habits to weekdays
         } else {

@@ -11,3 +11,19 @@
 ## Progress Tracking
 - Started: 2023-10-31 12:00 PM
 - Completed: [Date/Time]
+
+# Profile Page Implementation Tasks
+
+## Tasks to Complete
+- [x] Create src/components/Profile.tsx component
+- [x] Add 'profile' to View type and tabs in src/components/Dashboard.tsx
+- [x] Implement profile display: name, email, avatar, theme, timezone
+- [x] Add editable fields for profile info (name, theme, timezone)
+- [x] Display habit stats: total habits, 30-day completion rate, longest streak, total completions
+- [x] Handle avatar display (upload optional for now)
+- [x] Test profile updates and data persistence
+- [x] Ensure responsive design and dark mode support
+
+## Progress Tracking
+- Started: 2024-01-15
+- Completed: 2024-01-15
