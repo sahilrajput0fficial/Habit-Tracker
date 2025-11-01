@@ -1,3 +1,6 @@
+// Time and timezone utilities
+import { DateTime } from 'luxon';
+
 // Time format conversion utilities for 12-hour and 24-hour formats
 
 export interface Time12Hour {
@@ -91,4 +94,84 @@ export function getCurrentTime12Hour(): Time12Hour {
   const minute = now.getMinutes();
 
   return convert24To12(`${hour24}:${minute}`);
+}
+
+// ---- Timezone helpers ----
+
+/** Return the browser-detected IANA timezone, e.g., 'America/Los_Angeles' */
+export function getBrowserTimeZone(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+  } catch {
+    return 'UTC';
+  }
+}
+
+/**
+ * Given a local time-of-day (HH:MM) and a target IANA timezone, compute the next Date (in system timezone)
+ * at which that local time occurs in that timezone.
+ */
+export function nextDateTimeInZone(timeHHMM: string, timeZone: string): Date {
+  const [h, m] = timeHHMM.split(':').map(Number);
+
+  // Now in target zone
+  const nowZ = DateTime.now().setZone(timeZone);
+  let nextZ = nowZ.set({ hour: h, minute: m, second: 0, millisecond: 0 });
+
+  if (nextZ <= nowZ) {
+    nextZ = nextZ.plus({ days: 1 });
+  }
+
+  // Convert to JS Date (system zone) for scheduling setTimeout
+  return new Date(nextZ.toJSDate().getTime());
+}
+
+/** Convert a local time-of-day in a zone to the next UTC instant ISO string */
+export function nextUtcInstantFromLocalTime(timeHHMM: string, timeZone: string): string {
+  const dt = nextDateTimeInZone(timeHHMM, timeZone);
+  return new Date(dt).toISOString();
+}
+
+/** Format a HH:MM time as 12-hour with AM/PM in the given timezone (for display) */
+export function formatTimeInZone(timeHHMM: string, timeZone: string): string {
+  const target = DateTime.now().setZone(timeZone);
+  const [h, m] = timeHHMM.split(':').map(Number);
+  const dt = target.set({ hour: h, minute: m, second: 0, millisecond: 0 });
+  return dt.toFormat('h:mm a');
+}
+
+/** Return current offset minutes for a zone, useful to detect DST changes */
+export function getZoneOffsetMinutes(timeZone: string): number {
+  return DateTime.now().setZone(timeZone).offset; // minutes
+}
+
+/** Safe list of timezones; tries Intl.supportedValuesOf('timeZone') then fallback */
+export function getAllTimeZones(): string[] {
+  const fallback = [
+    'UTC',
+    'Etc/GMT',
+    'Europe/London',
+    'Europe/Paris',
+    'Asia/Kolkata',
+    'Asia/Tokyo',
+    'Asia/Singapore',
+    'Asia/Dubai',
+    'America/New_York',
+    'America/Chicago',
+    'America/Denver',
+    'America/Los_Angeles',
+    'America/Sao_Paulo',
+    'Australia/Sydney'
+  ];
+
+  const IntlAny = Intl as unknown as { supportedValuesOf?: (key: string) => string[] };
+  if (typeof IntlAny.supportedValuesOf === 'function') {
+    try {
+      const list = IntlAny.supportedValuesOf!('timeZone');
+      if (Array.isArray(list) && list.length > 0) return list;
+    } catch {
+      // ignore unsupported environments
+    }
+  }
+  return fallback;
 }

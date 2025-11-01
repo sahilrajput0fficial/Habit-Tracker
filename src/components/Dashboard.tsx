@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { useHabits } from '../hooks/useHabits';
 import {
   Plus,
   CheckCircle2,
@@ -16,6 +15,8 @@ import {
   Trash2,
   Filter,
   BookOpen,
+  Download,
+  Globe2,
 } from 'lucide-react';
 import { HabitForm } from './HabitForm';
 import { CalendarView } from './CalendarView';
@@ -23,10 +24,14 @@ import { ProgressView } from './ProgressView';
 import { NotificationsPanel } from './NotificationsPanel';
 import { HistoryView } from './HistoryView';
 import { SuggestedHabits, Onboarding } from './Onboarding';
+
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { ExportModal } from './ExportModal';
+import { useHabits } from '../hooks/useHabits';
 import { PrebuiltHabitsManager } from './PrebuiltHabitsManager';
 import { Footer } from './Footer';
+import { TimezoneSettings } from './TimezoneSettings';
 
 type View = 'dashboard' | 'calendar' | 'progress' | 'history';
 
@@ -38,8 +43,8 @@ const getCategories = (habit: { category?: string[] | null }): string[] => {
 };
 
 export function Dashboard() {
-  const { habits, loading, toggleCompletion, isCompleted, getStreak, deleteHabit } = useHabits();
-  const { signOut } = useAuth();
+  const { habits, completions, loading, toggleCompletion, isCompleted, getStreak, deleteHabit } = useHabits();
+  const { signOut, user } = useAuth();
   const { theme, toggleTheme } = useTheme();
 
   const [currentView, setCurrentView] = useState<View>('dashboard');
@@ -47,6 +52,8 @@ export function Dashboard() {
   const [editingHabit, setEditingHabit] = useState<string | null>(null);
   const [deletingHabit, setDeletingHabit] = useState<string | null>(null);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [showTzSettings, setShowTzSettings] = useState(false);
   const [showPrebuiltManager, setShowPrebuiltManager] = useState(false);
   const [filterCategory, setFilterCategory] = useState('All');
 
@@ -73,6 +80,8 @@ export function Dashboard() {
     }
   };
 
+
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -89,6 +98,7 @@ export function Dashboard() {
 
   // 2. Filter habits active for today
   const activeHabitsToday = habits.filter((habit) => {
+  const activeHabitsToday = habits.filter((habit: any) => {
     const frequency = (habit.frequency as any) === 'weekly' ? 'custom' : habit.frequency;
     const activeDays =
       frequency === 'daily' ? [0, 1, 2, 3, 4, 5, 6] : habit.active_days || [];
@@ -100,6 +110,9 @@ export function Dashboard() {
     if (filterCategory === 'All') return true;
     return getCategories(habit).includes(filterCategory);
   });
+  const completedToday = activeHabitsToday.filter((h: any) => isCompleted(h.id, today)).length;
+  const totalActive = activeHabitsToday.length;
+  const reminderCount = habits.filter((h: any) => h.reminders_enabled && h.reminder_time).length;
 
   // 4. Update stats based on the *filtered* list
   const completedToday = filteredHabitsToday.filter((h) => isCompleted(h.id, today)).length;
@@ -143,11 +156,20 @@ export function Dashboard() {
 
                 {/* Theme Toggle */}
                 <button
+                  onClick={() => setShowTzSettings(true)}
+                  className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                  title="Timezone settings"
+                >
+                  <Globe2 className="w-5 h-5" />
+                </button>
+                <button
                   onClick={toggleTheme}
                   className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
                 >
                   {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
                 </button>
+
+
 
                 {/* Logout */}
                 <button
@@ -236,13 +258,22 @@ export function Dashboard() {
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
                   Today's Habits
                 </h2>
-                <button
-                  onClick={() => setShowHabitForm(true)}
-                  className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  <Plus className="w-5 h-5" />
-                  <span>Add Habit</span>
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setShowExportModal(true)}
+                    className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+                  >
+                    <Download className="w-5 h-5" />
+                    <span>Export Data</span>
+                  </button>
+                  <button
+                    onClick={() => setShowHabitForm(true)}
+                    className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    <Plus className="w-5 h-5" />
+                    <span>Add Habit</span>
+                  </button>
+                </div>
               </div>
 
               {/* Category Filters */}
@@ -302,6 +333,7 @@ export function Dashboard() {
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {filteredHabitsToday.map((habit) => {
+                  {activeHabitsToday.map((habit: any) => {
                     const completed = isCompleted(habit.id, today);
                     const streak = getStreak(habit.id);
                     const habitCategories = getCategories(habit);
@@ -386,7 +418,7 @@ export function Dashboard() {
                 </div>
               )}
 
-              {habits.length > 0 && <SuggestedHabits />}
+              <SuggestedHabits />
             </>
           )}
 
@@ -396,7 +428,7 @@ export function Dashboard() {
         </main>
 
         <Footer />
-
+        <TimezoneSettings isOpen={showTzSettings} onClose={() => setShowTzSettings(false)} />
         {/* Habit Form */}
         {showHabitForm && (
           <HabitForm
@@ -408,10 +440,10 @@ export function Dashboard() {
           />
         )}
 
-        {/* Prebuilt Habits Manager */}
-        <PrebuiltHabitsManager
-          isOpen={showPrebuiltManager}
-          onClose={() => setShowPrebuiltManager(false)}
+        {/* Export Modal */}
+        <ExportModal
+          isOpen={showExportModal}
+          onClose={() => setShowExportModal(false)}
         />
 
         {/* Onboarding Modal */}

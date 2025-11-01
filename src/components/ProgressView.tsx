@@ -88,7 +88,7 @@ export function ProgressView() {
     
     let activeDaysInPeriod = 0;
     let completedInPeriod = 0;
-    let checkDate = new Date();
+    const checkDate = new Date();
 
     for (let i = 0; i < 30; i++) { // Check last 30 days
       const dayOfWeek = checkDate.getDay();
