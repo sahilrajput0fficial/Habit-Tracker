@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Sparkles, Flame, Target } from 'lucide-react';
+import { Sparkles, Flame, Target, X } from 'lucide-react';
 import { useHabits } from '../hooks/useHabits';
 import { useAuth } from '../contexts/AuthContext';
 import { HabitForm } from './HabitForm';
@@ -301,10 +301,11 @@ export function Onboarding({ onOpenPrebuiltManager }: { onOpenPrebuiltManager?: 
   const { habits, loading } = useHabits();
   const { user } = useAuth();
   const [saving, setSaving] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
 
   // Only show onboarding modal for users with no habits and when not loading
   // Don't close during saving to allow multiple habits to be added
-  if (loading || (habits.length > 0 && !saving)) {
+  if (loading || (habits.length > 0 && !saving) || dismissed) {
     return null;
   }
 
@@ -327,7 +328,14 @@ export function Onboarding({ onOpenPrebuiltManager }: { onOpenPrebuiltManager?: 
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto relative">
+        <button
+          onClick={() => setDismissed(true)}
+          className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+          title="Close onboarding"
+        >
+          <X className="w-5 h-5" />
+        </button>
         <div className="p-8">
           <div className="text-center mb-8">
             <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-full mb-4">
