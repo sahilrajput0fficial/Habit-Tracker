@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Sparkles, Flame, Target } from 'lucide-react';
+import { Sparkles, Flame, Target,X} from 'lucide-react';
 import { useHabits } from '../hooks/useHabits';
 import { useAuth } from '../contexts/AuthContext';
 import { HabitForm } from './HabitForm';
@@ -301,6 +301,7 @@ export function Onboarding({ onOpenPrebuiltManager }: { onOpenPrebuiltManager?: 
   const { habits, loading } = useHabits();
   const { user } = useAuth();
   const [saving, setSaving] = useState(false);
+  const [isClosed, setIsClosed] = useState(false);
 
   // Only show onboarding modal for users with no habits and when not loading
   // Don't close during saving to allow multiple habits to be added
@@ -324,10 +325,29 @@ export function Onboarding({ onOpenPrebuiltManager }: { onOpenPrebuiltManager?: 
       console.warn('Failed to save onboarding state:', e);
     }
   }
+  const handleClose = () => {
+    const key = `onboarding_shown_${user?.id ?? 'anon'}`;
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(key, '1');
+      } catch (e) {
+        // Ignore storage errors
+        console.warn('Failed to save onboarding state:', e);
+      }
+    }
+    setIsClosed(true);
+  };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+      <button
+          onClick={handleClose}
+          className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+          aria-label="Close onboarding"
+        >
+          <X className="w-5 h-5" />
+        </button>
         <div className="p-8">
           <div className="text-center mb-8">
             <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-full mb-4">
