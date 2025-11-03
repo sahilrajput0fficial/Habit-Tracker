@@ -1,6 +1,11 @@
 -- Challenge System Migration (template_id as plain text, no FK)
 -- Idempotent script to set up tables, data, policies, etc.
 -- Run once in Supabase SQL editor.
+ALTER TABLE public.prebuilt_habits 
+DROP COLUMN IF EXISTS is_template CASCADE;
+
+ALTER TABLE public.prebuilt_habits
+DROP CONSTRAINT IF EXISTS prebuilt_habits_template_id_key;
 
 -- Step 1: Add template columns to prebuilt_habits table (idempotent)
 ALTER TABLE public.prebuilt_habits 
