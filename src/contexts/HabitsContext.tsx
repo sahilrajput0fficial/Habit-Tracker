@@ -189,6 +189,7 @@ export function HabitsProvider({ children }: HabitsProviderProps) {
   const [predefinedBadges, setPredefinedBadges] = useState<PredefinedBadge[]>([]);
   const [userBadges, setUserBadges] = useState<UserBadge[]>([]);
   const [loading, setLoading] = useState(true);
+  const [badgesLoaded, setBadgesLoaded] = useState(false);
 
   const loadHabits = useCallback(async () => {
     try {
@@ -235,6 +236,7 @@ export function HabitsProvider({ children }: HabitsProviderProps) {
 
   // ——— Badge Functions ——— //
   async function fetchPredefinedBadges() {
+    if (badgesLoaded) return predefinedBadges;
     const { data, error } = await supabase
       .from('predefined_badges')
       .select('*')
@@ -242,11 +244,12 @@ export function HabitsProvider({ children }: HabitsProviderProps) {
       .order('created_at', { ascending: false });
     if (error) throw error;
     setPredefinedBadges(data || []);
+    setBadgesLoaded(true);
     return data || [];
   }
 
   async function fetchUserBadges() {
-    if (!user) return [];
+    if (!user || badgesLoaded) return userBadges;
     const { data, error } = await supabase
       .from('user_badges')
       .select(`
