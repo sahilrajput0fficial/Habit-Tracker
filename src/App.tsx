@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { HabitsProvider } from './contexts/HabitsContext';
+import { ToastProvider } from './components/ToastProvider';
 import { Auth } from './components/Auth';
 import { Dashboard } from './components/Dashboard';
 import PrivacyPolicy from './pages/PrivacyPolicy';
@@ -37,6 +38,7 @@ function App() {
       <AuthProvider>
         <ThemeProvider>
           <HabitsProvider>
+            <ToastProvider />
             <AppContent />
           </HabitsProvider>
         </ThemeProvider>

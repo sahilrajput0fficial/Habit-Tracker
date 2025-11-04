@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import { scheduleHabitReminder, cancelHabitReminder, scheduleEmailReminder, notificationManager } from '../utils/notifications';
 import { getBrowserTimeZone, getZoneOffsetMinutes, nextUtcInstantFromLocalTime } from '../utils/timeUtils';
+import toast from 'react-hot-toast';
 
 type Habit = {
   id: string;
@@ -124,7 +125,6 @@ type HabitsContextType = {
   completions: HabitCompletion[];
   history: HabitHistory[];
   loading: boolean;
-  createHabit: (habit: Omit<Habit, 'id' | 'user_id' | 'created_at' | 'updated_at' | 'target_days'> & { target_days?: number }) => Promise<Habit>;
   updateHabit: (id: string, updates: Partial<Habit>) => Promise<void>;
   deleteHabit: (id: string) => Promise<void>;
   toggleCompletion: (habitId: string, date: string) => Promise<void>;
@@ -156,7 +156,7 @@ type HabitsContextType = {
   fetchUserBadges: () => Promise<UserBadge[]>;
   checkAndAwardBadges: () => Promise<void>;
   awardBadge: (badgeId: string) => Promise<void>;
-  getUserStats: () => {
+  getUserStats: (habitsOverride?: Habit[], completionsOverride?: HabitCompletion[], challengesOverride?: Challenge[]) => {
     totalHabits: number;
     totalCompletions: number;
     longestStreak: number;
@@ -249,7 +249,7 @@ export function HabitsProvider({ children }: HabitsProviderProps) {
   }
 
   async function fetchUserBadges() {
-    if (!user || badgesLoaded) return userBadges;
+    if (!user) return [];
     const { data, error } = await supabase
       .from('user_badges')
       .select(`
@@ -303,6 +303,7 @@ export function HabitsProvider({ children }: HabitsProviderProps) {
 
   async function awardBadge(badgeId: string) {
     if (!user) return;
+    const badge = predefinedBadges.find(b => b.id === badgeId);
     const { data, error } = await supabase
       .from('user_badges')
       .insert({ user_id: user.id, badge_id: badgeId })
@@ -310,6 +311,14 @@ export function HabitsProvider({ children }: HabitsProviderProps) {
       .single();
     if (error) throw error;
     setUserBadges([data, ...userBadges]);
+
+    // Show toast notification for badge achievement
+    if (badge) {
+      toast.success(`🏆 Badge Earned: ${badge.name}!`, {
+        duration: 5000,
+        icon: badge.icon,
+      });
+    }
   }
 
   function getUserStats(habitsOverride?: Habit[], completionsOverride?: HabitCompletion[], challengesOverride?: Challenge[]) {
@@ -324,11 +333,11 @@ export function HabitsProvider({ children }: HabitsProviderProps) {
     // Calculate completion rate over the last 30 days
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    const recentCompletions = completionsToUse.filter(c => new Date(c.completed_date) >= thirtyDaysAgo);
+    const recentCompletions = completionsToUse.filter((c: HabitCompletion) => new Date(c.completed_date) >= thirtyDaysAgo);
     const completionRate = totalHabits > 0 ? Math.round((recentCompletions.length / (totalHabits * 30)) * 100) : 0;
 
-    const completedChallenges = challengesToUse.filter(c => c.status === 'completed').length;
-    const daysActive = new Set(completionsToUse.map(c => c.completed_date)).size;
+    const completedChallenges = challengesToUse.filter((c: Challenge) => c.status === 'completed').length;
+    const daysActive = new Set(completionsToUse.map((c: HabitCompletion) => c.completed_date)).size;
     return {
       totalHabits,
       totalCompletions,
