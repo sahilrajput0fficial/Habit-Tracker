@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Sparkles, Flame, Target } from 'lucide-react';
+import { Sparkles, Flame, Target, X } from 'lucide-react';
 import { useHabits } from '../hooks/useHabits';
 import { useAuth } from '../contexts/AuthContext';
 import { HabitForm } from './HabitForm';
@@ -177,8 +177,8 @@ export function SuggestedHabits({ shouldSeedDefaults = false, onHabitAdded, onSa
               key={habit.id || index}
               onClick={() => toggleSelection(index)}
               className={`text-left relative p-4 rounded-xl border-2 transition-all cursor-pointer ${isSelected
-                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                  : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
+                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
                 }`}
             >
               {isSelected && (
@@ -301,33 +301,59 @@ export function Onboarding({ onOpenPrebuiltManager }: { onOpenPrebuiltManager?: 
   const { habits, loading } = useHabits();
   const { user } = useAuth();
   const [saving, setSaving] = useState(false);
-
-  // Only show onboarding modal for users with no habits and when not loading
-  // Don't close during saving to allow multiple habits to be added
-  if (loading || (habits.length > 0 && !saving)) {
-    return null;
-  }
-
-  // Show for new users with no habits
-  // Temporarily disabled localStorage check for testing
-  // const key = `onboarding_shown_${user?.id ?? 'anon'}`;
-  // const alreadyShown = typeof window !== 'undefined' && localStorage.getItem(key) === '1';
-  // if (alreadyShown) return null;
-
-  // Mark as shown so it won't appear next time
+  const [isManuallyClosed, setIsManuallyClosed] = useState(false);
   const key = `onboarding_shown_${user?.id ?? 'anon'}`;
-  if (typeof window !== 'undefined') {
+
+  // Initialize 'alreadyShown' state from localStorage
+  const [alreadyShown, setAlreadyShown] = useState(() => {
+    if (typeof window === 'undefined') return false;
     try {
-      localStorage.setItem(key, '1');
-    } catch (e) {
-      // Ignore storage errors
-      console.warn('Failed to save onboarding state:', e);
+      return localStorage.getItem(key) === '1';
+    } catch {
+      return false;
     }
+  });
+
+  // Helper function to mark the modal as shown in localStorage and state
+  const markAsShown = () => {
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(key, '1');
+        setAlreadyShown(true);
+      } catch (e) {
+        console.warn('Failed to save onboarding state:', e);
+      }
+    }
+  };
+
+  // Handler for the new close button
+  const handleClose = () => {
+    markAsShown();
+    setIsManuallyClosed(true);
+  };
+
+  // Determine if the modal should be shown based on all conditions
+  const shouldShow =
+    !loading &&
+    habits.length === 0 &&
+    !saving &&
+    !alreadyShown &&
+    !isManuallyClosed;
+
+  if (!shouldShow) {
+    return null;
   }
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+        <button
+          onClick={handleClose}
+          className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+          aria-label="Close onboarding"
+        >
+          <X className="w-5 h-5" />
+        </button>
         <div className="p-8">
           <div className="text-center mb-8">
             <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-full mb-4">
@@ -341,10 +367,15 @@ export function Onboarding({ onOpenPrebuiltManager }: { onOpenPrebuiltManager?: 
             </p>
           </div>
 
-          <SuggestedHabits shouldSeedDefaults={true} onHabitAdded={() => {
-            // Close the onboarding modal when a habit is added
-            // This will be handled by the parent component checking habits.length > 0
-          }} onSavingChange={setSaving} />
+          <SuggestedHabits
+            shouldSeedDefaults={true}
+            onHabitAdded={() => {
+              // When a habit is added, mark as shown.
+              // The modal will close on next render because habits.length > 0
+              markAsShown();
+            }}
+            onSavingChange={setSaving}
+          />
 
           <div className="mt-8 text-center">
             <p className="text-sm text-gray-500 dark:text-gray-400">
